@@ -1,0 +1,116 @@
+// Prisma schema for QOTE Middleware
+// Run: npx prisma generate && npx prisma db push
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Main event log
+model QoteLog {
+  id          Int      @id @default(autoincrement())
+  trace_id    String   @unique
+  session_id  String
+
+  // JSON-serialized request and response
+  request     String   @db.Text
+  response    String   @db.Text
+
+  // Quick access fields (extracted from JSON)
+  channel     String?
+  user_role   String?
+  event_type  String?  // For event logs
+
+  // QOTE metrics (extracted for querying)
+  delta_theta Float?
+  wobble_w    Float?
+  phi_index   Float?
+  state       String?
+
+  // Gating
+  gating_mode String?
+
+  // Safety
+  safety_flags String[] @default([])
+
+  // Timing
+  latency_ms  Int?
+  created_at  DateTime @default(now())
+
+  @@index([session_id])
+  @@index([channel])
+  @@index([state])
+  @@index([created_at])
+  @@index([gating_mode])
+}
+
+// Error log
+model ErrorLog {
+  id            Int      @id @default(autoincrement())
+  trace_id      String
+  session_id    String?
+
+  error_message String   @db.Text
+  error_stack   String?  @db.Text
+  context       String?  @db.Text
+
+  created_at    DateTime @default(now())
+
+  @@index([trace_id])
+  @@index([created_at])
+}
+
+// Session tracking
+model Session {
+  id              String   @id @default(uuid())
+  session_id      String   @unique
+
+  channel         String
+  user_role       String?
+
+  first_seen      DateTime @default(now())
+  last_seen       DateTime @default(now())
+
+  message_count   Int      @default(0)
+
+  // Aggregate metrics
+  avg_delta_theta Float?
+  avg_phi_index   Float?
+
+  @@index([channel])
+  @@index([last_seen])
+}
+
+// Research data: ESP events
+model EspEvent {
+  id          Int      @id @default(autoincrement())
+  trace_id    String   @unique
+  session_id  String
+
+  event_type  String   // esp_hit | esp_miss | esp_timeout
+
+  // ESP-specific data
+  target      String?
+  guess       String?
+  correct     Boolean?
+
+  // Context
+  hrv         Float?
+  uv_index    Float?
+
+  // QOTE metrics at time of event
+  delta_theta Float?
+  phi_index   Float?
+  state       String?
+
+  created_at  DateTime @default(now())
+
+  @@index([session_id])
+  @@index([event_type])
+  @@index([correct])
+  @@index([created_at])
+}
