@@ -1,0 +1,53 @@
+{
+  "name": "qote-middleware",
+  "version": "1.0.0",
+  "description": "QOTE Middleware - Central nervous system for QOTE-aware applications",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "db:migrate": "prisma migrate dev",
+    "test": "jest",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "openai": "^4.28.0",
+    "@prisma/client": "^5.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "typescript": "^5",
+    "prisma": "^5.10.0",
+    "eslint": "^8",
+    "eslint-config-next": "^14.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "qote",
+    "middleware",
+    "ai",
+    "coherence",
+    "gating",
+    "openai",
+    "typescript",
+    "nextjs"
+  ],
+  "author": "QOTE Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/qote-middleware.git"
+  }
+}

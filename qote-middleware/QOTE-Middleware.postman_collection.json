@@ -1,0 +1,161 @@
+{
+  "info": {
+    "name": "QOTE Middleware",
+    "_postman_id": "qote-middleware-2025",
+    "description": "Collection for testing QOTE Middleware endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "Simple Chat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-QOTE-Version",
+                "value": "1"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message_id\": \"test-msg-1\",\n  \"channel\": \"guardian\",\n  \"user_role\": \"clinician\",\n  \"input_type\": \"text\",\n  \"input_text\": \"What are the symptoms of TSC?\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/qote/chat",
+              "host": ["{{base_url}}"],
+              "path": ["api", "qote", "chat"]
+            }
+          }
+        },
+        {
+          "name": "Chat with Context",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-QOTE-Version",
+                "value": "1"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message_id\": \"test-msg-2\",\n  \"channel\": \"clinic\",\n  \"user_role\": \"clinician\",\n  \"input_type\": \"text\",\n  \"input_text\": \"Explain these genetic test results to the family.\",\n  \"context\": {\n    \"tags\": [\"genetics\", \"results\", \"pediatrics\"],\n    \"patient_meta\": {\n      \"age\": 4,\n      \"sex\": \"M\",\n      \"diagnoses\": [\"TSC?\"]\n    }\n  },\n  \"model_prefs\": {\n    \"primary_model\": \"gpt-4o\",\n    \"max_tokens\": 800,\n    \"temperature\": 0.4\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/qote/chat",
+              "host": ["{{base_url}}"],
+              "path": ["api", "qote", "chat"]
+            }
+          }
+        },
+        {
+          "name": "Chat with History",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message_id\": \"test-msg-3\",\n  \"channel\": \"guardian\",\n  \"user_role\": \"family\",\n  \"input_type\": \"text\",\n  \"input_text\": \"What should we do next?\",\n  \"context\": {\n    \"history\": [\n      {\n        \"role\": \"user\",\n        \"content\": \"My child was just diagnosed with TSC.\",\n        \"timestamp\": \"2025-11-13T19:20:01Z\"\n      },\n      {\n        \"role\": \"assistant\",\n        \"content\": \"I understand this is a challenging time. TSC (Tuberous Sclerosis Complex) is a genetic condition...\",\n        \"timestamp\": \"2025-11-13T19:20:15Z\"\n      }\n    ]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/qote/chat",
+              "host": ["{{base_url}}"],
+              "path": ["api", "qote", "chat"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "ESP Hit Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_id\": \"esp-event-1\",\n  \"channel\": \"esp_lab\",\n  \"event_type\": \"esp_hit\",\n  \"payload\": {\n    \"label\": \"anna_guess_1\",\n    \"target\": \"image_42\",\n    \"guess\": \"image_37\",\n    \"correct\": false\n  },\n  \"signals\": {\n    \"hrv\": 62,\n    \"uv_index\": 7.4\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/qote/event",
+              "host": ["{{base_url}}"],
+              "path": ["api", "qote", "event"]
+            }
+          }
+        },
+        {
+          "name": "UV Spike Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_id\": \"uv-spike-1\",\n  \"channel\": \"clinic\",\n  \"event_type\": \"uv_spike\",\n  \"payload\": {\n    \"location\": \"tulsa\",\n    \"spike_level\": 9.2\n  },\n  \"signals\": {\n    \"uv_index\": 9.2,\n    \"time_local\": \"2025-11-13T13:34:00-06:00\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/qote/event",
+              "host": ["{{base_url}}"],
+              "path": ["api", "qote", "event"]
+            }
+          }
+        },
+        {
+          "name": "Coherence Practice Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_id\": \"practice-1\",\n  \"channel\": \"guardian\",\n  \"event_type\": \"coherence_practice\",\n  \"payload\": {\n    \"practice_type\": \"breathing\",\n    \"duration_seconds\": 300\n  },\n  \"signals\": {\n    \"hrv\": 75\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/qote/event",
+              "host": ["{{base_url}}"],
+              "path": ["api", "qote", "event"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
