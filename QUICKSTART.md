@@ -15,7 +15,7 @@ Get QOTE Middleware running in 5 minutes.
 ## Step 1: Clone & Install
 
 ```bash
-git clone https://github.com/yourusername/qote-middleware.git
+git clone https://github.com/michaelkayser1/Resona-OS.git
 cd qote-middleware
 npm install
 ```
@@ -226,7 +226,7 @@ Verify `DATABASE_URL` is correct and PostgreSQL is running.
 
 ## Support
 
-- GitHub Issues: https://github.com/yourorg/qote-middleware/issues
+- GitHub Issues: https://github.com/michaelkayser1/Resona-OS/issues
 - Email: support@qote.dev
 
 ---

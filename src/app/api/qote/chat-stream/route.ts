@@ -16,7 +16,8 @@ import { generateTraceId, generateSessionId } from "@/utils/id";
 import { getCurrentTimestamp } from "@/utils/time";
 import { QoteChatRequest } from "@/types";
 
-export const runtime = "edge";
+// Note: Using default Node.js runtime for database/logger compatibility
+// Edge runtime doesn't support Prisma and some Node.js APIs
 
 export async function POST(req: NextRequest) {
   let trace_id = "";

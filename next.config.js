@@ -2,12 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // Enable experimental features
-  experimental: {
-    serverActions: {
-      allowedOrigins: ['*']
-    }
-  },
+  // Standalone output for better deployment
+  output: 'standalone',
 
   // API route configuration
   async headers() {
@@ -22,13 +18,6 @@ const nextConfig = {
         ],
       },
     ];
-  },
-
-  // Environment variables validation
-  env: {
-    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-    DATABASE_URL: process.env.DATABASE_URL,
-    QOTE_API_VERSION: process.env.QOTE_API_VERSION || '1',
   },
 
   // TypeScript config

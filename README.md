@@ -182,7 +182,7 @@ For logging non-chat events: ESP hits, UV spikes, coherence practices.
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/yourusername/qote-middleware.git
+git clone https://github.com/michaelkayser1/Resona-OS.git
 cd qote-middleware
 npm install
 ```

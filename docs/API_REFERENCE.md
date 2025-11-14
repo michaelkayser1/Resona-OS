@@ -414,5 +414,5 @@ Official SDKs available:
 ## Support
 
 - Documentation: https://docs.qote.dev
-- GitHub Issues: https://github.com/yourorg/qote-middleware/issues
+- GitHub Issues: https://github.com/michaelkayser1/Resona-OS/issues
 - Email: support@qote.dev

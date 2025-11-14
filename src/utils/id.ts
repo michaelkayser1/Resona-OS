@@ -1,29 +1,45 @@
 /**
  * ID Generation Utilities
  * UUIDs and trace ID generation
+ * Works on both Edge Runtime and Node.js
  */
 
-import { randomUUID } from "crypto";
+/**
+ * Generate a UUID using Web Crypto API (Edge-compatible)
+ */
+function generateUUIDInternal(): string {
+  // Use Web Crypto API which works on both Edge and Node.js
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
+  // Fallback for environments without crypto.randomUUID
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
 
 /**
  * Generate a unique trace ID for request tracking
  */
 export function generateTraceId(): string {
-  return `qote-trace-${randomUUID()}`;
+  return `qote-trace-${generateUUIDInternal()}`;
 }
 
 /**
  * Generate a session ID
  */
 export function generateSessionId(): string {
-  return `qote-session-${randomUUID()}`;
+  return `qote-session-${generateUUIDInternal()}`;
 }
 
 /**
  * Generate a generic UUID
  */
 export function generateUUID(): string {
-  return randomUUID();
+  return generateUUIDInternal();
 }
 
 /**
