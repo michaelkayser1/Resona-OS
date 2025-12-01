@@ -22,8 +22,8 @@ import {
   Mail,
   Globe,
   Users,
-  BarChart3,
-} from "lucide-react"
+  BarChart,
+} from "@/components/ui/icons"
 
 const phases = [
   {
@@ -213,7 +213,7 @@ export default function QOTEStrategyDashboard() {
               onClick={() => handleExternalLink(externalLinks.investorDeck, "header_pitch_click")}
               className="text-purple-400 hover:text-purple-300 hover:bg-purple-400/10"
             >
-              <BarChart3 className="w-4 h-4 mr-1" />
+              <BarChart className="w-4 h-4 mr-1" />
               Pitch Deck
             </Button>
           </div>
@@ -458,7 +458,7 @@ export default function QOTEStrategyDashboard() {
                 onClick={() => handleExternalLink(externalLinks.investorDeck, "revenue_projections_deck")}
                 className="mt-2 text-green-400 hover:text-green-300"
               >
-                <BarChart3 className="w-3 h-3 mr-1" />
+                <BarChart className="w-3 h-3 mr-1" />
                 View Full Projections
               </Button>
             </div>
