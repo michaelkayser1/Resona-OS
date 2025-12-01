@@ -135,29 +135,72 @@ function Dashboard({
   const tones: Tone[] = ["Standard", "Formal", "Creative"]
 
   return (
-    <aside className="w-full md:w-1/3 lg:w-1/4 bg-slate-800 rounded-2xl p-6 mb-4 md:mr-4 border-2 border-slate-700">
-      <h2 className="text-xl font-bold text-slate-200 mb-4">QOTE Resona Dashboard</h2>
+    <aside
+      className="w-full md:w-1/3 lg:w-1/4 bg-slate-800 rounded-2xl p-6 mb-4 md:mr-4 border-2 border-slate-700"
+      style={{
+        width: "100%",
+        backgroundColor: "#1e293b",
+        borderRadius: "1rem",
+        padding: "1.5rem",
+        marginBottom: "1rem",
+        border: "2px solid #334155",
+        maxWidth: "400px",
+      }}
+    >
+      <h2
+        className="text-xl font-bold text-slate-200 mb-4"
+        style={{ fontSize: "1.25rem", fontWeight: "bold", color: "#e2e8f0", marginBottom: "1rem" }}
+      >
+        QOTE Resona Dashboard
+      </h2>
 
-      <div className="mb-4">
-        <div className="text-sm text-slate-400 mb-2">Coherence (R): {coherence.toFixed(3)}</div>
+      <div className="mb-4" style={{ marginBottom: "1rem" }}>
+        <div
+          className="text-sm text-slate-400 mb-2"
+          style={{ fontSize: "0.875rem", color: "#94a3b8", marginBottom: "0.5rem" }}
+        >
+          Coherence (R): {coherence.toFixed(3)}
+        </div>
         <Sparkline data={coherenceHistory.slice(-40)} />
-        <div className="mt-2 text-xs text-slate-400 grid grid-cols-2 gap-2">
+        <div
+          className="mt-2 text-xs text-slate-400 grid grid-cols-2 gap-2"
+          style={{
+            marginTop: "0.5rem",
+            fontSize: "0.75rem",
+            color: "#94a3b8",
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "0.5rem",
+          }}
+        >
           <div>
-            Δθ: <span className="font-mono text-slate-100">{appliedDeltaTheta.toFixed(3)}</span>
+            Δθ:{" "}
+            <span className="font-mono text-slate-100" style={{ fontFamily: "monospace", color: "#f1f5f9" }}>
+              {appliedDeltaTheta.toFixed(3)}
+            </span>
           </div>
           <div>
-            Entangl.: <span className="font-mono text-slate-100">{entanglement.toFixed(3)}</span>
+            Entangl.:{" "}
+            <span className="font-mono text-slate-100" style={{ fontFamily: "monospace", color: "#f1f5f9" }}>
+              {entanglement.toFixed(3)}
+            </span>
           </div>
           <div>
-            Wobble: <span className="font-mono text-slate-100">{wobble.toFixed(2)}</span>
+            Wobble:{" "}
+            <span className="font-mono text-slate-100" style={{ fontFamily: "monospace", color: "#f1f5f9" }}>
+              {wobble.toFixed(2)}
+            </span>
           </div>
           <div>
-            Threshold: <span className="font-mono text-slate-100">{threshold.toFixed(3)}</span>
+            Threshold:{" "}
+            <span className="font-mono text-slate-100" style={{ fontFamily: "monospace", color: "#f1f5f9" }}>
+              {threshold.toFixed(3)}
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap" style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
         {tones.map((tone) => (
           <button
             key={tone}
@@ -165,6 +208,17 @@ function Dashboard({
             className={`py-2 px-4 rounded-full text-sm font-semibold transition-all duration-200 ${
               currentTone === tone ? "bg-blue-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"
             }`}
+            style={{
+              padding: "0.5rem 1rem",
+              borderRadius: "9999px",
+              fontSize: "0.875rem",
+              fontWeight: "600",
+              backgroundColor: currentTone === tone ? "#2563eb" : "#334155",
+              color: currentTone === tone ? "#ffffff" : "#cbd5e1",
+              border: "none",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
           >
             {tone}
           </button>
@@ -294,7 +348,18 @@ export default function App() {
   )
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-slate-900 text-slate-100 p-4">
+    <div
+      className="flex flex-col md:flex-row min-h-screen bg-slate-900 text-slate-100 p-4"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "100vh",
+        backgroundColor: "#0f172a",
+        color: "#f1f5f9",
+        padding: "1rem",
+        fontFamily: "system-ui, -apple-system, sans-serif",
+      }}
+    >
       <Dashboard
         coherence={coherence}
         appliedDeltaTheta={appliedDeltaTheta}
@@ -306,8 +371,29 @@ export default function App() {
         threshold={GOLDEN_RATIO_THRESHOLD}
       />
 
-      <main className="flex-1 flex flex-col bg-slate-800 rounded-2xl p-6 border-2 border-slate-700">
-        <div className="flex-1 overflow-y-auto mb-4 space-y-4">
+      <main
+        className="flex-1 flex flex-col bg-slate-800 rounded-2xl p-6 border-2 border-slate-700"
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: "#1e293b",
+          borderRadius: "1rem",
+          padding: "1.5rem",
+          border: "2px solid #334155",
+        }}
+      >
+        <div
+          className="flex-1 overflow-y-auto mb-4 space-y-4"
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            marginBottom: "1rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1rem",
+          }}
+        >
           {messages.map((msg, i) => (
             <div
               key={i}
@@ -318,27 +404,72 @@ export default function App() {
                     ? "bg-slate-750 border border-slate-600"
                     : "bg-slate-750"
               }`}
+              style={{
+                borderRadius: "0.75rem",
+                padding: "0.75rem",
+                backgroundColor: msg.sender === "user" ? "#334155" : "#1e293b",
+                border: msg.isSystem ? "1px solid #475569" : "none",
+              }}
             >
-              <div className={`text-sm ${msg.isSystem ? "text-slate-400 italic" : ""}`}>{msg.text}</div>
+              <div
+                className={`text-sm ${msg.isSystem ? "text-slate-400 italic" : ""}`}
+                style={{
+                  fontSize: "0.875rem",
+                  color: msg.isSystem ? "#94a3b8" : "#f1f5f9",
+                  fontStyle: msg.isSystem ? "italic" : "normal",
+                }}
+              >
+                {msg.text}
+              </div>
               {msg.metrics && (
-                <div className="mt-2 pt-2 border-t border-slate-700 text-xs text-slate-400 grid grid-cols-3 gap-2">
+                <div
+                  className="mt-2 pt-2 border-t border-slate-700 text-xs text-slate-400 grid grid-cols-3 gap-2"
+                  style={{
+                    marginTop: "0.5rem",
+                    paddingTop: "0.5rem",
+                    borderTop: "1px solid #334155",
+                    fontSize: "0.75rem",
+                    color: "#94a3b8",
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr 1fr",
+                    gap: "0.5rem",
+                  }}
+                >
                   <div>
-                    R: <span className="font-mono text-slate-100">{msg.metrics.finalCoherence}</span>
+                    R:{" "}
+                    <span className="font-mono text-slate-100" style={{ fontFamily: "monospace", color: "#f1f5f9" }}>
+                      {msg.metrics.finalCoherence}
+                    </span>
                   </div>
                   <div>
-                    Δθ: <span className="font-mono text-slate-100">{msg.metrics.deltaTheta}</span>
+                    Δθ:{" "}
+                    <span className="font-mono text-slate-100" style={{ fontFamily: "monospace", color: "#f1f5f9" }}>
+                      {msg.metrics.deltaTheta}
+                    </span>
                   </div>
                   <div>
-                    S: <span className="font-mono text-slate-100">{msg.metrics.entanglementStrength}</span>
+                    S:{" "}
+                    <span className="font-mono text-slate-100" style={{ fontFamily: "monospace", color: "#f1f5f9" }}>
+                      {msg.metrics.entanglementStrength}
+                    </span>
                   </div>
                 </div>
               )}
             </div>
           ))}
           {isLoading && (
-            <div className="rounded-xl p-3 bg-slate-750">
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+            <div
+              className="rounded-xl p-3 bg-slate-750"
+              style={{ borderRadius: "0.75rem", padding: "0.75rem", backgroundColor: "#1e293b" }}
+            >
+              <div
+                className="flex items-center gap-2 text-sm text-slate-400"
+                style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.875rem", color: "#94a3b8" }}
+              >
+                <div
+                  className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"
+                  style={{ width: "0.5rem", height: "0.5rem", backgroundColor: "#3b82f6", borderRadius: "9999px" }}
+                ></div>
                 Processing field dynamics...
               </div>
             </div>
@@ -346,7 +477,7 @@ export default function App() {
           <div ref={messagesEndRef} />
         </div>
 
-        <form onSubmit={handleSendMessage} className="flex gap-4">
+        <form onSubmit={handleSendMessage} className="flex gap-4" style={{ display: "flex", gap: "1rem" }}>
           <input
             type="text"
             value={input}
@@ -354,6 +485,16 @@ export default function App() {
             className="flex-1 p-4 rounded-xl bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Cast a prompt into the quantum field…"
             disabled={isLoading}
+            style={{
+              flex: 1,
+              padding: "1rem",
+              borderRadius: "0.75rem",
+              backgroundColor: "#334155",
+              color: "#ffffff",
+              border: "none",
+              outline: "none",
+              fontSize: "1rem",
+            }}
           />
           <button
             type="submit"
@@ -361,6 +502,17 @@ export default function App() {
               isLoading ? "bg-slate-700 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
             }`}
             disabled={isLoading}
+            style={{
+              padding: "1rem",
+              borderRadius: "0.75rem",
+              backgroundColor: isLoading ? "#334155" : "#2563eb",
+              color: "#ffffff",
+              border: "none",
+              cursor: isLoading ? "not-allowed" : "pointer",
+              fontSize: "1rem",
+              fontWeight: "600",
+              minWidth: "80px",
+            }}
           >
             Send
           </button>
