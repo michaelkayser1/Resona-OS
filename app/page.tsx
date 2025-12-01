@@ -1,202 +1,371 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Brain, Zap, Target, Users, FileText } from "lucide-react"
-import QOTECore from "@/components/qote-core"
+"use client"
 
-export default function Home() {
+import type React from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+
+const GOLDEN_RATIO_THRESHOLD = 0.618
+const PHI = 1.618
+
+type Tone = "Standard" | "Formal" | "Creative"
+type CustState = "ACCUMULATING" | "EVALUATING" | "PASSED" | "FAILED"
+
+export const storage = {
+  get<T>(k: string, fallback: T): T {
+    try {
+      if (typeof localStorage === "undefined") return fallback
+      const v = localStorage.getItem(k)
+      return v ? (JSON.parse(v) as T) : fallback
+    } catch {
+      return fallback
+    }
+  },
+  set<T>(k: string, v: T) {
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(k, JSON.stringify(v))
+      }
+    } catch {}
+  },
+}
+
+export class QoteEngine {
+  private rng: () => number
+  private cust: CustState = "ACCUMULATING"
+  private stepsSinceStart = 0
+
+  constructor(rng: () => number) {
+    this.rng = rng
+  }
+
+  reset() {
+    this.cust = "ACCUMULATING"
+    this.stepsSinceStart = 0
+  }
+
+  step(params: any) {
+    this.stepsSinceStart++
+
+    const baseCoherence = 0.6 + this.rng() * 0.3
+    const deltaTheta = 0.1 + this.rng() * 0.2
+    const entanglement = 0.7 + this.rng() * 0.2
+    const wobble = this.rng() * 0.4
+
+    if (this.stepsSinceStart > 5 && baseCoherence > 0.7) {
+      this.cust = "PASSED"
+    } else if (this.stepsSinceStart > 15) {
+      this.cust = "FAILED"
+    } else {
+      this.cust = "EVALUATING"
+    }
+
+    return {
+      metrics: {
+        coherence: baseCoherence,
+        deltaTheta,
+        entanglement,
+        wobble,
+        threshold: GOLDEN_RATIO_THRESHOLD,
+      },
+      cust: this.cust,
+    }
+  }
+
+  resync() {
+    this.cust = "ACCUMULATING"
+    this.stepsSinceStart = 1
+    return {
+      metrics: {
+        coherence: 0.65,
+        deltaTheta: 0.18,
+        entanglement: 0.8,
+        wobble: 0.25,
+        threshold: GOLDEN_RATIO_THRESHOLD,
+      },
+      cust: "ACCUMULATING",
+    }
+  }
+}
+
+export function hashSeed(s: string) {
+  let h = 1779033703 ^ s.length
+  for (let i = 0; i < s.length; i++) {
+    h = Math.imul(h ^ s.charCodeAt(i), 3432918353)
+    h = (h << 13) | (h >>> 19)
+  }
+  return () => {
+    h = Math.imul(h ^ (h >>> 16), 2246822507)
+    h = Math.imul(h ^ (h >>> 13), 3266489909)
+    const t = (h ^= h >>> 16) >>> 0
+    return t / 4294967296
+  }
+}
+
+function Sparkline({ data }: { data: number[] }) {
+  const w = 160,
+    h = 40,
+    pad = 2
+  if (!data.length) return <svg width={w} height={h} aria-hidden />
+
+  const step = (w - pad * 2) / Math.max(1, data.length - 1)
+  const pts = data
+    .map((v, i) => {
+      const x = pad + i * step
+      const y = pad + (1 - v) * (h - pad * 2)
+      return `${x},${y}`
+    })
+    .join(" ")
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-        <div className="container mx-auto px-4 py-6">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-chart-1 bg-clip-text text-transparent mb-2">
-              QOTE Framework Demo
-            </h1>
-            <p className="text-xl text-muted-foreground mb-2">
-              Oscillatory Neural Framework for Resonant Coherence and Relational Adaptation
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Patent Application by <strong>Dr. Michael A. Kayser, DO, FACMG</strong> • Filed August 27, 2025
-            </p>
+    <svg width={w} height={h} role="img" aria-label="Coherence sparkline">
+      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  )
+}
+
+function Dashboard({
+  coherence,
+  appliedDeltaTheta,
+  currentTone,
+  coherenceHistory,
+  setCurrentTone,
+  entanglement,
+  wobble,
+  threshold,
+}: any) {
+  const tones: Tone[] = ["Standard", "Formal", "Creative"]
+
+  return (
+    <aside className="w-full md:w-1/3 lg:w-1/4 bg-slate-800 rounded-2xl p-6 mb-4 md:mr-4 border-2 border-slate-700">
+      <h2 className="text-xl font-bold text-slate-200 mb-4">QOTE Resona Dashboard</h2>
+
+      <div className="mb-4">
+        <div className="text-sm text-slate-400 mb-2">Coherence (R): {coherence.toFixed(3)}</div>
+        <Sparkline data={coherenceHistory.slice(-40)} />
+        <div className="mt-2 text-xs text-slate-400 grid grid-cols-2 gap-2">
+          <div>
+            Δθ: <span className="font-mono text-slate-100">{appliedDeltaTheta.toFixed(3)}</span>
+          </div>
+          <div>
+            Entangl.: <span className="font-mono text-slate-100">{entanglement.toFixed(3)}</span>
+          </div>
+          <div>
+            Wobble: <span className="font-mono text-slate-100">{wobble.toFixed(2)}</span>
+          </div>
+          <div>
+            Threshold: <span className="font-mono text-slate-100">{threshold.toFixed(3)}</span>
           </div>
         </div>
-      </header>
+      </div>
 
-      <main className="container mx-auto px-4 py-8">
-        {/* Introduction */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Brain className="w-6 h-6 text-primary" />
-              Revolutionary AI Architecture
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground leading-relaxed">
-              The QOTE framework introduces <strong>oscillatory dynamics</strong> into transformer architectures,
-              enabling unprecedented coherence control, personalization, and interpretability. This interactive demo
-              showcases the core innovations: <strong>Kuramoto synchronization</strong>,{" "}
-              <strong>phase-coherent attention</strong>,<strong>relational Δθ adaptation</strong>, and{" "}
-              <strong>coherence-gated outputs</strong>.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="flex gap-2 flex-wrap">
+        {tones.map((tone) => (
+          <button
+            key={tone}
+            onClick={() => setCurrentTone(tone)}
+            className={`py-2 px-4 rounded-full text-sm font-semibold transition-all duration-200 ${
+              currentTone === tone ? "bg-blue-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+            }`}
+          >
+            {tone}
+          </button>
+        ))}
+      </div>
+    </aside>
+  )
+}
 
-        {/* Key Innovations */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Brain className="w-5 h-5 text-chart-1" />
-                <h3 className="font-semibold text-sm">Oscillatory Embeddings</h3>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Tokens as complex oscillators z = a·e^(iθ) enabling natural synchronization dynamics
-              </p>
-            </CardContent>
-          </Card>
+function getResponseText(tone: Tone, coherence: number, userInput: string): string {
+  const responses = {
+    consciousness: "Consciousness emerges from quantum field interactions, creating coherent patterns of awareness.",
+    quantum: "Quantum mechanics reveals the fundamental interconnectedness of all information systems.",
+    time: "Time flows as a river of quantum states, each moment a crystallization of possibility.",
+    creative: "Let's explore the creative dimensions where imagination meets quantum possibility.",
+    default: "The quantum field resonates with your inquiry, revealing new patterns of understanding.",
+  }
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Zap className="w-5 h-5 text-chart-2" />
-                <h3 className="font-semibold text-sm">Kuramoto Sync</h3>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Phase alignment through coupled oscillator dynamics with relational offsets
-              </p>
-            </CardContent>
-          </Card>
+  const input = userInput.toLowerCase()
+  let response = responses.default
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Target className="w-5 h-5 text-chart-3" />
-                <h3 className="font-semibold text-sm">CUST Gating</h3>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Output blocked until coherence R ≥ τ preventing unstable generation
-              </p>
-            </CardContent>
-          </Card>
+  if (input.includes("consciousness") || input.includes("aware")) response = responses.consciousness
+  else if (input.includes("quantum") || input.includes("physics")) response = responses.quantum
+  else if (input.includes("time") || input.includes("future")) response = responses.time
+  else if (input.includes("create") || input.includes("art")) response = responses.creative
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="w-5 h-5 text-chart-4" />
-                <h3 className="font-semibold text-sm">Relational Δθ</h3>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                User archetype controls phase offset for personalized processing
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+  const fieldStatus =
+    coherence > 0.8
+      ? "Field locks: crystalline clarity."
+      : coherence > 0.65
+        ? "Standing wave stabilized."
+        : "Signal coherent enough for transmission."
 
-        {/* Main Demo */}
-        <QOTECore />
+  if (tone === "Formal") return `${fieldStatus} ${response} Analysis complete with canonical framing.`
+  if (tone === "Creative") return `${fieldStatus} ${response} ✨ The mythic threads weave golden patterns.`
+  return `${fieldStatus} ${response}`
+}
 
-        {/* Technical Details */}
-        <Card className="mt-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="w-6 h-6 text-primary" />
-              Key Equations & Claims
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="font-semibold mb-3">Core Mathematical Framework</h4>
-                <div className="font-mono text-sm space-y-2 text-muted-foreground bg-muted p-4 rounded-lg">
+export default function App() {
+  const [messages, setMessages] = useState<any[]>([
+    {
+      text: "🌟 QOTE Resona System Initialized",
+      sender: "bot",
+      isSystem: true,
+    },
+    {
+      text: "Advanced quantum-inspired conversational AI with coherence field dynamics. Ask me anything to see the quantum field respond!",
+      sender: "bot",
+    },
+  ])
+  const [input, setInput] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [currentTone, setCurrentTone] = useState<Tone>("Standard")
+  const [coherence, setCoherence] = useState<number>(0.65)
+  const [coherenceHistory, setCoherenceHistory] = useState<number[]>([0.65])
+  const [appliedDeltaTheta, setAppliedDeltaTheta] = useState<number>(0.18)
+
+  const sessionId = useMemo(() => crypto.randomUUID(), [])
+  const rng = useMemo(() => hashSeed(sessionId + currentTone), [sessionId, currentTone])
+  const engine = useMemo(() => new QoteEngine(rng), [rng])
+
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
+
+  const simulateApiCall = useCallback(
+    async (userText: string) => {
+      setIsLoading(true)
+      engine.reset()
+
+      setMessages((prev) => [...prev, { text: "Tuning field parameters…", sender: "bot", isSystem: true }])
+
+      for (let i = 0; i < 8; i++) {
+        await new Promise((r) => setTimeout(r, 200))
+
+        const step = engine.step({
+          input: userText,
+          tone: currentTone,
+          lastCoherence: coherence,
+        })
+
+        setCoherence(step.metrics.coherence)
+        setAppliedDeltaTheta(step.metrics.deltaTheta)
+        setCoherenceHistory((prev) => [...prev.slice(-39), step.metrics.coherence])
+
+        if (step.cust === "PASSED") {
+          setMessages((prev) => [
+            ...prev,
+            {
+              text: getResponseText(currentTone, step.metrics.coherence, userText),
+              sender: "bot",
+              metrics: {
+                finalCoherence: step.metrics.coherence.toFixed(3),
+                deltaTheta: step.metrics.deltaTheta.toFixed(3),
+                entanglementStrength: step.metrics.entanglement.toFixed(3),
+              },
+            },
+          ])
+          setIsLoading(false)
+          return
+        }
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        { text: "CUST evaluation timeout. Try resynchronization.", sender: "bot", isError: true },
+      ])
+      setIsLoading(false)
+    },
+    [coherence, currentTone, engine],
+  )
+
+  const handleSendMessage = useCallback(
+    async (e?: React.FormEvent) => {
+      e?.preventDefault()
+      if (!input.trim() || isLoading) return
+
+      const text = input.trim()
+      setMessages((prev) => [...prev, { text, sender: "user" }])
+      setInput("")
+
+      await simulateApiCall(text)
+    },
+    [input, isLoading, simulateApiCall],
+  )
+
+  return (
+    <div className="flex flex-col md:flex-row min-h-screen bg-slate-900 text-slate-100 p-4">
+      <Dashboard
+        coherence={coherence}
+        appliedDeltaTheta={appliedDeltaTheta}
+        currentTone={currentTone}
+        coherenceHistory={coherenceHistory}
+        setCurrentTone={setCurrentTone}
+        entanglement={0.75}
+        wobble={0.3}
+        threshold={GOLDEN_RATIO_THRESHOLD}
+      />
+
+      <main className="flex-1 flex flex-col bg-slate-800 rounded-2xl p-6 border-2 border-slate-700">
+        <div className="flex-1 overflow-y-auto mb-4 space-y-4">
+          {messages.map((msg, i) => (
+            <div
+              key={i}
+              className={`rounded-xl p-3 ${
+                msg.sender === "user"
+                  ? "bg-slate-700"
+                  : msg.isSystem
+                    ? "bg-slate-750 border border-slate-600"
+                    : "bg-slate-750"
+              }`}
+            >
+              <div className={`text-sm ${msg.isSystem ? "text-slate-400 italic" : ""}`}>{msg.text}</div>
+              {msg.metrics && (
+                <div className="mt-2 pt-2 border-t border-slate-700 text-xs text-slate-400 grid grid-cols-3 gap-2">
                   <div>
-                    • Oscillatory Embedding: <strong>z = a·e^(iθ)</strong>
+                    R: <span className="font-mono text-slate-100">{msg.metrics.finalCoherence}</span>
                   </div>
                   <div>
-                    • Phase Synchronization: <strong>dθᵢ/dt = ωᵢ + (K/N) Σⱼ sin(θⱼ - θᵢ + Δθ)</strong>
+                    Δθ: <span className="font-mono text-slate-100">{msg.metrics.deltaTheta}</span>
                   </div>
                   <div>
-                    • Order Parameter: <strong>R = |1/N Σⱼ e^(iθⱼ)|</strong>
-                  </div>
-                  <div>
-                    • CUST Condition: <strong>R ≥ τ</strong> (coherence gate)
-                  </div>
-                  <div>
-                    • Phase-Coherent Attention: <strong>softmax(QK^T/√d + λ·cos(θᵢ - θⱼ - Δθ))</strong>
+                    S: <span className="font-mono text-slate-100">{msg.metrics.entanglementStrength}</span>
                   </div>
                 </div>
-              </div>
-
-              <div>
-                <h4 className="font-semibold mb-3">Patent Claims Demonstrated</h4>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>
-                    <strong>Claim 1:</strong> Oscillatory token embeddings with Kuramoto synchronization
-                  </li>
-                  <li>
-                    <strong>Claim 2:</strong> Phase-coherent attention with relational Δθ modulation
-                  </li>
-                  <li>
-                    <strong>Claim 3:</strong> CUST coherence gating for output stability
-                  </li>
-                  <li>
-                    <strong>Claim 4:</strong> Resonance mapping for interpretability
-                  </li>
-                  <li>
-                    <strong>Claim 5:</strong> Multi-agent synchronization architecture
-                  </li>
-                </ul>
+              )}
+            </div>
+          ))}
+          {isLoading && (
+            <div className="rounded-xl p-3 bg-slate-750">
+              <div className="flex items-center gap-2 text-sm text-slate-400">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                Processing field dynamics...
               </div>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Instructions */}
-        <Card className="mt-6 border-primary/20 bg-primary/5">
-          <CardHeader>
-            <CardTitle className="text-primary">How to Use This Demo</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="space-y-2">
-                <p>
-                  <strong>1. Start Synchronization:</strong> Click "Start Sync" to begin Kuramoto phase alignment
-                </p>
-                <p>
-                  <strong>2. Watch Phase Vectors:</strong> Colored vectors show token phases synchronizing over time
-                </p>
-                <p>
-                  <strong>3. Monitor Coherence:</strong> Order parameter R tracks global phase alignment
-                </p>
-              </div>
-              <div className="space-y-2">
-                <p>
-                  <strong>4. Adjust Parameters:</strong> Modify user archetype, coupling strength, and thresholds
-                </p>
-                <p>
-                  <strong>5. CUST Gating:</strong> Output generation only proceeds when coherence exceeds threshold
-                </p>
-                <p>
-                  <strong>6. Resonance Map:</strong> View interpretability metrics and system diagnostics
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t bg-card/50 mt-12">
-        <div className="container mx-auto px-4 py-6">
-          <div className="text-center text-sm text-muted-foreground">
-            <p>© 2025 Dr. Michael A. Kayser, DO, FACMG • Kayser Medical PLLC</p>
-            <p className="mt-1">
-              Patent Application Filed: August 27, 2025 • Technology Classification: Neural Networks, Machine Learning,
-              Conversational AI
-            </p>
-          </div>
+          )}
+          <div ref={messagesEndRef} />
         </div>
-      </footer>
+
+        <form onSubmit={handleSendMessage} className="flex gap-4">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            className="flex-1 p-4 rounded-xl bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Cast a prompt into the quantum field…"
+            disabled={isLoading}
+          />
+          <button
+            type="submit"
+            className={`p-4 rounded-xl transition-colors ${
+              isLoading ? "bg-slate-700 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+            }`}
+            disabled={isLoading}
+          >
+            Send
+          </button>
+        </form>
+      </main>
     </div>
   )
 }
