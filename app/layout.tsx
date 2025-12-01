@@ -1,18 +1,15 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { GeistSans } from "geist/font/sans"
+import { GeistMono } from "geist/font/mono"
+import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
 import "./globals.css"
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-})
-
 export const metadata: Metadata = {
-  title: "QOTE-Resona v0 | AI Coherence Dashboard",
+  title: "QOTE - Quantum Oscillatory Token Embedding | Kayser-Medical × Resona",
   description:
-    "The first quantum resonance interface for AI coherence measurement. Real-time braid-map visualization and executive dashboard.",
+    "Revolutionary patent-pending AI technology using quantum-inspired oscillatory embeddings and personalized coherence gating for unprecedented AI response quality.",
   generator: "v0.app",
 }
 
@@ -22,9 +19,10 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`font-sans ${inter.variable} antialiased`}>
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+      <body className="font-sans antialiased">
         <Suspense fallback={null}>{children}</Suspense>
+        <Analytics />
       </body>
     </html>
   )
