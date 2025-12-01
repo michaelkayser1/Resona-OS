@@ -1,32 +1,71 @@
 {
-  "name": "qote-advanced-system",
-  "version": "2.1.0",
+  "name": "qote-resona-v0",
+  "version": "0.1.0",
   "private": true,
+  "description": "The first quantum resonance interface for AI coherence measurement",
+  "keywords": [
+    "quantum",
+    "ai",
+    "coherence",
+    "visualization",
+    "healthcare",
+    "machine-learning"
+  ],
+  "homepage": "https://localhost:3000",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kayser-medical/qote-resona-dashboard"
+  },
+  "license": "Proprietary",
+  "author": "Kayser Medical",
   "scripts": {
+    "analyze": "python scripts/compute-kappa.py",
     "build": "next build",
+    "deploy": "vercel --prod",
+    "deploy-staging": "vercel",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "server": "python scripts/compute-kappa.py --mode server",
+    "start": "next start",
+    "test": "npm run build && npm run lint",
+    "visualize": "python scripts/braid-map-visualization.py"
   },
   "dependencies": {
-    "@types/three": "^0.158.0",
+    "@radix-ui/react-accordion": "latest",
+    "@radix-ui/react-checkbox": "latest",
+    "@radix-ui/react-context-menu": "latest",
+    "@radix-ui/react-dialog": "latest",
+    "@radix-ui/react-dropdown-menu": "latest",
+    "@radix-ui/react-menubar": "latest",
+    "@radix-ui/react-navigation-menu": "latest",
+    "@radix-ui/react-radio-group": "latest",
+    "@radix-ui/react-select": "latest",
+    "@radix-ui/react-slot": "latest",
+    "@radix-ui/react-toast": "latest",
+    "@vercel/analytics": "^1.1.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "latest",
+    "embla-carousel-react": "latest",
+    "geist": "latest",
+    "input-otp": "latest",
     "lucide-react": "^0.454.0",
     "next": "14.0.0",
     "react": "^18",
     "react-dom": "^18",
+    "react-resizable-panels": "latest",
     "tailwind-merge": "^2.5.5",
-    "tailwindcss-animate": "^1.0.7",
-    "three": "^0.158.0",
-    "tw-animate-css": "latest"
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@types/node": "^22",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "autoprefixer": "^10.0.1",
+    "eslint": "^8",
+    "eslint-config-next": "14.0.0",
     "postcss": "^8.5",
-    "tailwindcss": "^4.1.9",
+    "tailwindcss": "^3.4.17",
     "typescript": "^5"
   }
 }
