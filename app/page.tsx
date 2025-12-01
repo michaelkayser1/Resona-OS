@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import QOTENavigation from "@/components/qote-navigation"
 import QOTEBraidMap from "@/components/qote-braid-map"
 import QOTEStrategyDashboard from "@/components/qote-strategy-dashboard"
@@ -13,7 +13,12 @@ export default function Home() {
     "braid-map" | "strategy" | "dashboard" | "presentation" | "documentation"
   >("braid-map")
 
+  useEffect(() => {
+    console.log("[v0] QOTE app mounted, current view:", currentView)
+  }, [currentView])
+
   const renderCurrentView = () => {
+    console.log("[v0] Rendering view:", currentView)
     switch (currentView) {
       case "braid-map":
         return <QOTEBraidMap />

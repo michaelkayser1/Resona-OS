@@ -11,7 +11,7 @@
     "healthcare",
     "machine-learning"
   ],
-  "homepage": "https://localhost:3000",
+  "homepage": "https://v0-resona-executive-presentation.vercel.app",
   "repository": {
     "type": "git",
     "url": "https://github.com/kayser-medical/qote-resona-dashboard"
@@ -44,12 +44,10 @@
     "@radix-ui/react-slider": "1.2.1",
     "@radix-ui/react-slot": "latest",
     "@radix-ui/react-toast": "latest",
-    "@vercel/analytics": "^1.1.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "latest",
     "embla-carousel-react": "latest",
-    "geist": "1.5.1",
     "input-otp": "latest",
     "lucide-react": "^0.454.0",
     "next": "14.0.0",
