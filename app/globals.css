@@ -1,5 +1,5 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
+@import "tailwindcss";
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -75,8 +75,6 @@
 }
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback';
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -121,5 +119,58 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .cosmic-card {
+    @apply bg-slate-800/30 border-slate-700/50 backdrop-blur-sm;
+  }
+
+  .cosmic-button {
+    @apply bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white border-0 transition-all duration-300;
+  }
+
+  .cosmic-button-active {
+    @apply bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white border-0 transition-all duration-300;
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
+  }
+
+  .cosmic-tab {
+    @apply data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500/20 data-[state=active]:to-amber-500/20 data-[state=active]:text-cyan-400 transition-all duration-300;
+  }
+
+  .cosmic-glow {
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
+  }
+
+  .floating {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .cosmic-pulse {
+    animation: cosmic-pulse 2s ease-in-out infinite;
+  }
+}
+
+@layer utilities {
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  @keyframes cosmic-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
   }
 }
