@@ -1,15 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: { 
+    typedRoutes: true 
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
   images: {
     unoptimized: true,
   },
- 
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-}
+};
 
-export default nextConfig
+export default nextConfig;
