@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -76,7 +75,8 @@
 }
 
 @theme inline {
-  /* optional: --font-sans, --font-serif, --font-mono if they are applied in the layout.tsx */
+  --font-sans: 'Geist', 'Geist Fallback';
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -122,24 +122,4 @@
   body {
     @apply bg-background text-foreground;
   }
-}
-
-.glow {
-  @apply shadow-lg shadow-cyan-500/50 transition-shadow;
-}
-
-.holographic {
-  @apply bg-gray-800/80 backdrop-blur-sm border border-cyan-500/30 rounded-lg;
-}
-
-.knob {
-  @apply bg-gray-700 border-2 border-cyan-500 rounded-full p-2 hover:bg-cyan-500/20 transition-colors;
-}
-
-.emergence-glow {
-  @apply animate-pulse shadow-lg shadow-yellow-400/50;
-}
-
-.quantum-field {
-  background: radial-gradient(circle at center, rgba(6, 182, 212, 0.1) 0%, transparent 70%);
 }
