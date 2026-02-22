@@ -1,0 +1,27 @@
+{
+  "name": "QOTE Live - Chaos to Coherence",
+  "short_name": "QOTE Live",
+  "description": "Real-time Kuramoto oscillator visualization exploring phase-locked chaos and emergence",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#3b82f6",
+  "orientation": "landscape-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "science", "visualization"],
+  "lang": "en",
+  "dir": "ltr"
+}
