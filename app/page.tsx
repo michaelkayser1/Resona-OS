@@ -1,79 +1,79 @@
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import type React from "react"
+import TorusTraumaCycle from "@/components/TorusTraumaCycle"
 
-export default function HomePage() {
+export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <div className="container mx-auto px-4 py-16">
-        <header className="text-center mb-16">
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-emerald-400 bg-clip-text text-transparent mb-6">
-            QOTE Living Donut
-          </h1>
-          <p className="text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
-            Visualize quantum oscillator thermodynamics and entanglement with our advanced QOTE engine simulation.
-            Experience real-time parameter control and resonance mapping in an intuitive interface.
+    <main className="min-h-dvh grid place-items-center px-6 py-16">
+      <section className="max-w-4xl text-center">
+        <div className="inline-flex items-center rounded-full border px-3 py-1 text-xs/6 animate-in fade-in duration-500">
+          Kayser Medical PLLC • Resona
+        </div>
+
+        <h1 className="mt-6 text-4xl font-bold tracking-tight md:text-6xl animate-in fade-in slide-in-from-bottom-2 duration-700">
+          AI Orchestration — <span className="opacity-80">Chaos → Coherence</span>
+        </h1>
+
+        <p className="mt-4 text-balance text-base md:text-lg text-muted-foreground animate-in fade-in slide-in-from-bottom-2 duration-700 delay-150">
+          Resona coordinates agents, tools, and data streams using resonance-driven logic. Built on Next.js + Vercel.
+          Designed for real-time stability, clarity, and speed.
+        </p>
+
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3 animate-in fade-in zoom-in-95 duration-700 delay-200">
+          <a
+            href="/simulation"
+            className="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90 focus:outline-none focus:ring"
+          >
+            Launch QOTE Simulation
+          </a>
+          <a
+            href="/orchestrator"
+            className="rounded-md border px-4 py-2 text-sm font-medium hover:opacity-90 focus:outline-none focus:ring"
+          >
+            Launch Orchestrator
+          </a>
+          <a
+            href="/health"
+            className="rounded-md border px-4 py-2 text-sm font-medium hover:opacity-90 focus:outline-none focus:ring"
+          >
+            Health Dashboard
+          </a>
+          <a
+            href="https://www.kayser-medical.com/"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-md border px-4 py-2 text-sm font-medium hover:opacity-90 focus:outline-none focus:ring"
+          >
+            Kayser-Medical.com
+          </a>
+        </div>
+
+        <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Feature title="Multi-Agent">Plug ChatGPT, Claude, Grok, Gemini, and more into a single flow.</Feature>
+          <Feature title="Observability">Metrics & traces that keep you in lockstep with reality.</Feature>
+          <Feature title="Resonance">Tailwind + animate for smooth, readable state transitions.</Feature>
+        </div>
+
+        <div className="mt-16 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-300">
+          <h2 className="text-2xl font-bold mb-4">QOTE Resonance Engine</h2>
+          <p className="text-muted-foreground mb-8">
+            Experience the trauma → breath healing cycle through resonance visualization
           </p>
-        </header>
-
-        <div className="grid md:grid-cols-2 gap-8 mb-16">
-          <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-emerald-400 flex items-center gap-2">
-                <div className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse"></div>
-                Interactive Controls
-              </CardTitle>
-              <CardDescription className="text-slate-300">
-                Real-time parameter adjustment with immediate visual feedback
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-slate-300">
-              <ul className="space-y-2">
-                <li>• CUST Gating control (0-100%)</li>
-                <li>• Delta Theta (Δθ) visualization</li>
-                <li>• Quantum entanglement toggle</li>
-                <li>• Parameter optimization</li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-blue-400 flex items-center gap-2">
-                <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></div>
-                Advanced Visualization
-              </CardTitle>
-              <CardDescription className="text-slate-300">
-                Sophisticated charts and animations for complex data
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-slate-300">
-              <ul className="space-y-2">
-                <li>• Animated donut visualization</li>
-                <li>• Resonance frequency mapping</li>
-                <li>• Entanglement coefficient tracking</li>
-                <li>• Export capabilities for presentations</li>
-              </ul>
-            </CardContent>
-          </Card>
+          <TorusTraumaCycle isRunning={true} speed={1} resonance={0.7} />
         </div>
 
-        <div className="text-center">
-          <Link href="/living-donut.html" target="_blank">
-            <Button
-              size="lg"
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-4 text-lg font-semibold"
-            >
-              Launch QOTE Simulation
-            </Button>
-          </Link>
-          <p className="text-slate-400 mt-4">Opens in a new tab for optimal performance</p>
-        </div>
-
-        <footer className="mt-20 text-center text-slate-500">
-          <p>QOTE Living Donut Simulation | Quantum Oscillator Thermodynamic Engine</p>
+        <footer className="mt-12 text-xs text-muted-foreground">
+          © {new Date().getFullYear()} Kayser Medical PLLC · Resona
         </footer>
-      </div>
+      </section>
+    </main>
+  )
+}
+
+function Feature({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border p-4 animate-in fade-in slide-in-from-bottom-2 duration-700">
+      <h3 className="font-semibold">{title}</h3>
+      <p className="mt-1 text-sm text-muted-foreground">{children}</p>
     </div>
   )
 }
