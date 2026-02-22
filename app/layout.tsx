@@ -1,34 +1,28 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-import { ThemeProvider } from "next-themes"
-import { ErrorBoundary } from "@/components/ErrorBoundary"
+import { GeistSans } from "geist/font/sans"
+import { GeistMono } from "geist/font/mono"
+import { Analytics } from "@vercel/analytics/next"
+import { Suspense } from "react"
 import "./globals.css"
 
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-})
-
 export const metadata: Metadata = {
-  title: "The Field Refinery",
-  description: "RBFR Quantum Cockpit - Multi-AI Science Instrument",
+  title: "QOTE - Quantum Oscillatory Token Embedding | Kayser-Medical × Resona",
+  description:
+    "Revolutionary patent-pending AI technology using quantum-inspired oscillatory embeddings and personalized coherence gating for unprecedented AI response quality.",
   generator: "v0.app",
 }
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode
-}) {
+}>) {
   return (
-    <html lang="en" className="antialiased">
-      <body className={inter.className}>
-        <ErrorBoundary>
-          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-            {children}
-          </ThemeProvider>
-        </ErrorBoundary>
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+      <body className="font-sans antialiased">
+        <Suspense fallback={null}>{children}</Suspense>
+        <Analytics />
       </body>
     </html>
   )
