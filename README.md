@@ -70,3 +70,23 @@ Not FDA cleared.
 ## Status
 
 Active development.
+
+---
+
+## Example Middleware Contract
+
+Example structured response envelope enforced by Resona OS:
+
+```json
+{
+  "request_id": "uuid",
+  "timestamp": "ISO-8601",
+  "model_provider": "openai|anthropic|other",
+  "input_hash": "sha256",
+  "validation_status": "passed|failed|flagged",
+  "response_payload": {
+    "structured_output": {},
+    "confidence_score": 0.0
+  },
+  "audit_log_ref": "log_id"
+}
