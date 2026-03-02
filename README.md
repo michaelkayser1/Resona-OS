@@ -4,6 +4,8 @@ Clinical-grade AI safety middleware for structured response gating, auditability
 
 Resona OS is a middleware architecture that sits between large language models (LLMs) and end-user interfaces, enforcing structured outputs, validation layers, and logging controls before responses reach users.
 
+This repository uses AGENTS.md to enforce deterministic AI behavior.
+
 ---
 
 ## Why It Exists
