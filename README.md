@@ -2,9 +2,17 @@
 
 Clinical-grade AI safety middleware for structured response gating, auditability, and regulated deployment.
 
+**Status:** Active development · Research and development platform  
+**Contact:** mike@kayser-medical.com  
+**Web:** [kayser-medical.com](https://kayser-medical.com)
+
+---
+
+## What It Is
+
 Resona OS is a middleware architecture that sits between large language models (LLMs) and end-user interfaces, enforcing structured outputs, validation layers, and logging controls before responses reach users.
 
-This repository uses AGENTS.md to enforce deterministic AI behavior.
+Current development is an active n=1 self-study. Expanded cohort protocols in development.
 
 ---
 
@@ -34,18 +42,19 @@ Resona OS provides that enforcement layer.
 ---
 
 ## Architectural Model
-
-User Input  
-↓  
-Model Provider (LLM)  
-↓  
-Resona OS Middleware Layer  
-    • Schema validation  
-    • Safety gating  
-    • Structured formatting  
-    • Audit logging  
-↓  
-Application Interface  
+```
+User Input
+  ↓
+Model Provider (LLM)
+  ↓
+Resona OS Middleware Layer
+    • Schema validation
+    • Safety gating
+    • Structured formatting
+    • Audit logging
+  ↓
+Application Interface
+```
 
 ---
 
@@ -59,26 +68,9 @@ Application Interface
 
 ---
 
-## Intended Use
-
-Research and development platform.
-
-Not a medical device.
-Not a clinical decision system.
-Not FDA cleared.
-
----
-
-## Status
-
-Active development.
-
----
-
 ## Example Middleware Contract
 
-Example structured response envelope enforced by Resona OS:
-
+Structured response envelope enforced by Resona OS:
 ```json
 {
   "request_id": "uuid",
@@ -92,3 +84,25 @@ Example structured response envelope enforced by Resona OS:
   },
   "audit_log_ref": "log_id"
 }
+```
+
+---
+
+## Important Notices
+
+- Research and development platform only
+- Not a medical device
+- Not a clinical decision system
+- Not FDA cleared
+
+---
+
+## Related Work
+
+- [QOTE Framework](https://kayser-medical.com) — Oscillatory coherence theory underlying Resona OS
+- [Substack](https://substack.com/@michaelkayser) — Research writing and essays
+- [kayser-medical.com](https://kayser-medical.com)
+
+---
+
+*Kayser Medical PLLC · mike@kayser-medical.com*
