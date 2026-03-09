@@ -99,7 +99,7 @@ Structured response envelope enforced by Resona OS:
 
 ## Related Work
 
-- [QOTE Framework](https://kayser-medical.com) — Oscillatory coherence theory underlying Resona OS
+- [QOTE Framework](https://v0-qote-research-app.vercel.app/) — Oscillatory coherence theory underlying Resona OS
 - [Substack](https://substack.com/@michaelkayser) — Research writing and essays
 - [kayser-medical.com](https://kayser-medical.com)
 
