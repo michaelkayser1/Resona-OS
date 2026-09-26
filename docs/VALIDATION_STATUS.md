@@ -1,6 +1,8 @@
 # Resona OS: implementation and validation status
 
-**As of September 26, 2026.** This is a source-level inventory, not independent certification. Status can change as the repositories evolve.\n\n> **Historical result withdrawn:** Earlier passes of this repository's audit verifier do not establish stored-hash or payload tamper detection. See [Historical validity correction](#historical-validity-correction-september-26-2026).\n
+**As of September 26, 2026.** This is a source-level inventory, not independent certification. Status can change as the repositories evolve.
+
+> **Historical result withdrawn:** Earlier passes of this repository's audit verifier do not establish stored-hash or payload tamper detection. See [Historical validity correction](#historical-validity-correction-september-26-2026).\n
 | Surface | What is present | What remains unproven |
 | --- | --- | --- |
 | [Resona chat demo](https://github.com/michaelkayser1/v0-new-project-RESONA) | A deployed chat interface and API route | A separately authorized gate for consequential action, clinical accuracy, and end-to-end safety |
