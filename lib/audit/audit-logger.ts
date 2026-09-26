@@ -1,7 +1,6 @@
 /**
- * Immutable Audit Logging System
- * SHA-256 hash-chained append-only event store.
- * No event ever updates. Only inserts.
+ * Process-local audit chain prototype.
+ * Events are hashed when Web Crypto is available; this is not independent custody.
  */
 
 export interface AuditEvent {
