@@ -1,0 +1,15 @@
+{
+  "action": {
+    "action_class": "WRITE_MARKER_V1",
+    "destination": "staging://markers",
+    "evidence_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "marker": "M1",
+    "max_scope": "one_marker",
+    "policy_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "request_id": "R1",
+    "target": "test-marker-ledger"
+  },
+  "action_fingerprint": "3dbd6f7264333175f861e68d48fa78505169664693694aff4afa063de4eb9c8a",
+  "approval_signature": "y5Xhmvd_UDmid3bCzhrLlEVrU41sNYXF3B2zyTGrMwARU8LOarwDFgC9JxuIkrFj-dcMo7lo8vNzSYgwQt0SBQ",
+  "witness_signature": "uQ8ycpjxHJXnqASg3K2qdZad__D-IdJH6YDlHxkP3YvsTILqWWLxcpBxUYc7eaAVUedYKfeLUNbHZnddz-sCCQ"
+}
