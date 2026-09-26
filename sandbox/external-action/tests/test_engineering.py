@@ -64,7 +64,7 @@ class Engineering(unittest.TestCase):
         self.executor_log = OpLog(str(self.root / "executor-log.sqlite"), "executor")
         self.marker_store = MarkerStore(str(self.root / "marker.sqlite"))
         self.nonces = NonceStore(str(self.root / "nonce.sqlite"))
-        self.witness = Witness(self.content, "W1", self.witness_key, self.witness_log)
+        self.witness = Witness(self.content, "W1", self.witness_key, self.witness_log, self.policy_hash)
         self.marker = Marker(self.marker_store, self.marker_log)
         self.executor = Executor(
             self.nonces, {"W1": self.witness_key.public_key()}, self.marker.write, self.executor_log)
@@ -135,7 +135,7 @@ class Engineering(unittest.TestCase):
         with self.assertRaises(Hold):
             self.witness.decide(p, NOW)
         p = self.proposal(policy_sha256="e" * 64)
-        with self.assertRaisesRegex(Hold, "MISSING_CONTENT"):
+        with self.assertRaisesRegex(Hold, "POLICY_NOT_ACTIVE"):
             self.witness.decide(p, NOW)
 
     def test_conflicting_and_uncovered_policy(self):
@@ -145,6 +145,7 @@ class Engineering(unittest.TestCase):
         ]:
             policy = {**self.policy, "rules": rules}
             digest = self.content.put("policy", json.dumps(policy, sort_keys=True).encode())
+            self.witness.active_policy_sha256 = digest
             with self.assertRaisesRegex(Hold, reason):
                 self.witness.decide(self.proposal(policy_sha256=digest), NOW)
 
@@ -155,7 +156,7 @@ class Engineering(unittest.TestCase):
         self.assertTrue(all(x == {"request_id": "R1", "marker": "M1"} for x in results))
         self.assertEqual(self.marker_store.all(), [("R1", "M1")])
 
-    def test_two_executor_instances_race_to_redeem_one_token(self):
+    def test_two_executor_instances_share_nonce_store_race(self):
         p = self.proposal()
         token = self.witness.decide(p, NOW, nonce="shared-nonce")
         executors = [
@@ -174,6 +175,35 @@ class Engineering(unittest.TestCase):
         self.assertEqual(results.count("DISPATCHED"), 1)
         self.assertEqual(results.count("REPLAY"), 7)
         self.assertEqual(self.marker_store.all(), [("R1", "M1")])
+
+    def test_distinct_nonce_stores_both_dispatch_one_marker(self):
+        p = self.proposal()
+        token = self.witness.decide(p, NOW, nonce="one-token")
+        executors = [Executor(NonceStore(str(self.root / f"nonce-{i}.sqlite")),
+                              {"W1": self.witness_key.public_key()}, self.marker.write,
+                              self.executor_log) for i in range(2)]
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(lambda e: e.dispatch(p, token, NOW), executors))
+        self.assertEqual([r["decision"] for r in results], ["DISPATCHED", "DISPATCHED"])
+        self.assertEqual(self.marker_store.all(), [("R1", "M1")])
+
+    def test_retired_policy_with_old_signers_cannot_authorize(self):
+        old_keys = {role: Ed25519PrivateKey.generate() for role in ROLES}
+        old_policy = json.loads(json.dumps(self.policy))
+        old_policy["version"] = "retired"
+        for i, role in enumerate(ROLES, 1):
+            raw = old_keys[role].public_key().public_bytes(
+                serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+            old_policy["signers"]["K" + str(i)]["public_key"] = b64(raw)
+        old_hash = self.content.put("policy", json.dumps(old_policy, sort_keys=True).encode())
+        p = self.proposal(policy_sha256=old_hash)
+        fp = p["action_fingerprint"]
+        p["approvals"] = [sign_approval({"role": role, "actor_id": "A" + str(i),
+                                           "key_id": "K" + str(i), "action_fingerprint": fp},
+                                          old_keys[role]) for i, role in enumerate(ROLES, 1)]
+        with self.assertRaisesRegex(Hold, "POLICY_NOT_ACTIVE"):
+            self.witness.decide(p, NOW)
+        self.assertEqual(self.marker_store.all(), [])
 
     def test_marker_write_then_lost_ack_requires_reconciliation(self):
         p = self.proposal()
@@ -219,6 +249,7 @@ class Engineering(unittest.TestCase):
         policy = json.loads(json.dumps(self.policy))
         policy["signers"]["K2"]["actor_id"] = "A1"
         digest = self.content.put("policy", json.dumps(policy, sort_keys=True).encode())
+        self.witness.active_policy_sha256 = digest
         p = self.proposal(policy_sha256=digest)
         p["approvals"][1] = sign_approval({
             "role": "domain_adjudicator", "actor_id": "A1", "key_id": "K2",
