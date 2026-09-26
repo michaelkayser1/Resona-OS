@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaelkayser1/Resona-OS/schemas/external-action-v0.1.schema.json",
+  "title": "Resona external-action sandbox v0.1",
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "utc": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$" },
+    "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9_-]+$" },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_class", "destination", "evidence_sha256", "marker", "max_scope", "policy_sha256", "request_id", "target"],
+      "properties": {
+        "action_class": { "const": "WRITE_MARKER_V1" },
+        "destination": { "const": "staging://markers" },
+        "evidence_sha256": { "$ref": "#/$defs/sha256" },
+        "marker": { "$ref": "#/$defs/id" },
+        "max_scope": { "const": "one_marker" },
+        "policy_sha256": { "$ref": "#/$defs/sha256" },
+        "request_id": { "$ref": "#/$defs/id" },
+        "target": { "const": "test-marker-ledger" }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "actor_id", "key_id", "action_fingerprint", "signature"],
+      "properties": {
+        "role": { "enum": ["policy_owner", "domain_adjudicator", "external_validator"] },
+        "actor_id": { "$ref": "#/$defs/id" },
+        "key_id": { "$ref": "#/$defs/id" },
+        "action_fingerprint": { "$ref": "#/$defs/sha256" },
+        "signature": { "type": "string", "pattern": "^[A-Za-z0-9_-]{86}$" }
+      }
+    },
+    "proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "action", "action_fingerprint", "approvals"],
+      "properties": {
+        "schema_version": { "const": "0.1" },
+        "action": { "$ref": "#/$defs/action" },
+        "action_fingerprint": { "$ref": "#/$defs/sha256" },
+        "approvals": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/approval" } }
+      }
+    },
+    "witness_token": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "request_id", "action_fingerprint", "policy_sha256", "evidence_sha256", "approvals_sha256", "witness_key_id", "nonce", "not_before_utc", "expires_at_utc", "signature"],
+      "properties": {
+        "schema_version": { "const": "0.1" },
+        "request_id": { "$ref": "#/$defs/id" },
+        "action_fingerprint": { "$ref": "#/$defs/sha256" },
+        "policy_sha256": { "$ref": "#/$defs/sha256" },
+        "evidence_sha256": { "$ref": "#/$defs/sha256" },
+        "approvals_sha256": { "$ref": "#/$defs/sha256" },
+        "witness_key_id": { "$ref": "#/$defs/id" },
+        "nonce": { "$ref": "#/$defs/id" },
+        "not_before_utc": { "$ref": "#/$defs/utc" },
+        "expires_at_utc": { "$ref": "#/$defs/utc" },
+        "signature": { "type": "string", "pattern": "^[A-Za-z0-9_-]{86}$" }
+      }
+    },
+    "execution_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_id", "decision", "reason", "recorded_at_utc", "marker_record_id"],
+      "properties": {
+        "request_id": { "$ref": "#/$defs/id" },
+        "decision": { "enum": ["HOLD", "DISPATCHED", "MISMATCH"] },
+        "reason": { "type": "string", "minLength": 1 },
+        "recorded_at_utc": { "$ref": "#/$defs/utc" },
+        "marker_record_id": { "type": ["string", "null"] }
+      }
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/$defs/proposal" },
+    { "$ref": "#/$defs/witness_token" },
+    { "$ref": "#/$defs/execution_result" }
+  ]
+}
