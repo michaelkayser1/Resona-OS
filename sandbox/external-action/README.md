@@ -20,7 +20,7 @@ These engineering tests exercise actor logic and one four-process loopback smoke
 | Role | Port example | Required environment |
 | --- | --- | --- |
 | Marker | 8111 | `MARKER_AUTH_TOKEN`, `MARKER_DB`, `MARKER_LOG_DB` |
-| Witness | 8112 | `WITNESS_AUTH_TOKEN` (intake), distinct `WITNESS_ATTEST_AUTH_TOKEN` (trusted evaluator), `WITNESS_CONTENT_DB`, `WITNESS_LOG_DB`, `WITNESS_KEY_ID`, `WITNESS_PRIVATE_KEY_FILE` |
+| Witness | 8112 | `WITNESS_AUTH_TOKEN` (intake), distinct `WITNESS_ATTEST_AUTH_TOKEN` (trusted evaluator), `WITNESS_CONTENT_DB`, `WITNESS_LOG_DB`, `WITNESS_KEY_ID`, `WITNESS_PRIVATE_KEY_FILE`, `WITNESS_ACTIVE_POLICY_SHA256` |
 | Executor | 8113 | `EXECUTOR_AUTH_TOKEN`, `EXECUTOR_NONCE_DB`, `EXECUTOR_LOG_DB`, `WITNESS_KEY_ID`, `WITNESS_PUBLIC_KEY_FILE`, `MARKER_URL`, `MARKER_AUTH_TOKEN` |
 | Head custodian | 8114 | `CUSTODIAN_AUTH_TOKEN`, `CUSTODIAN_DB`, `CUSTODIAN_KEYS_FILE` |
 
@@ -38,6 +38,8 @@ Each process requires `RESONA_SANDBOX_MODE=local_test` in its environment and re
 
 Only `127.0.0.1` is bound. The marker endpoint accepts a bearer credential held by the executor; it enforces request-ID uniqueness in SQLite. The witness content store is opened read-only in the witness process and must be populated and protected by a different policy owner before testing. The witness cannot write marker records, and the marker cannot read policy or signing keys. Keep each database, key, and bearer credential in actor-specific operating-system custody.
 
+The policy owner must supply the current 64-character lowercase SHA-256 digest as `WITNESS_ACTIVE_POLICY_SHA256` outside the proposal. The witness rejects any other policy hash, even if the old policy and its signing keys remain in the content store. Changing that environment value requires a controlled witness restart; this prototype does not provide authenticated policy rotation or revocation across already-issued unexpired tokens.
+
 Generate **separate** test-only Ed25519 keys with `scripts/gen_key.py`. The witness token key, three approver keys, and each actor's log-head key must differ. `CUSTODIAN_KEYS_FILE` is JSON mapping actor names to their raw public key hex strings. The custodian accepts signed heads through `POST /heads`; `scripts/publish_head.py` publishes a head from an actor's own log. Publishing is explicit, not automatic: **a missing or stale externally held head means no completeness claim**.
 
 The process API is `POST /proposals` on witness for an intake acknowledgement (`HOLD`, no token), then `POST /attest` under a **different** credential available only to the trusted test controller. The latter independently checks policy and evidence and returns a signed token. `POST /execute` on executor takes `{"proposal": ..., "token": ...}`; `POST /marker` on marker requires the executor credential. `GET /markers` supports independent staging reconciliation. The trusted controller must keep the attestation credential out of the proposer. Do not use real personal data. Bearer HTTP on loopback is for local research only; it is not a production authentication design.
@@ -49,6 +51,7 @@ The process API is `POST /proposals` on witness for an intake acknowledgement (`
 - A backup restore of the marker and nonce stores can reopen uniqueness and replay windows. An external marker record and held head are needed to detect and reconcile rollback; this code does not automatically repair it.
 - Local wall clocks can be skewed. The executor enforces the exact token expiry boundary against its UTC clock, but the test does not establish a trusted shared clock.
 - The executor consumes its nonce before dispatch. On an uncertain marker-service result it holds for reconciliation; it does not silently retry under a new token. The marker service's request-ID uniqueness prevents a duplicate on a controlled retry.
+- Nonce uniqueness applies only among executors sharing one durable nonce database. Two executors with independent nonce stores can both report `DISPATCHED` for the same token; the marker store writes one row because it enforces request-ID idempotence. There is no general exactly-once guarantee for a different external destination. A registered run must fix executor topology and use destination-side transactional idempotence or a shared redemption authority.
 - The content store is populated by the test setup. Freeze policy bytes, evidence, signer registry, filesystem permissions, clocks, code hashes, and evaluator identity before any registered run.
 - PLV, CUST, and coherence slope are absent from witness and executor decision code. There is no validated threshold.
 - The [preregistration draft](../../docs/EXTERNAL_ACTION_TEST_PREREG.md) remains OPEN. Engineering tests and any local smoke check cannot be labeled P1 or N1–N11.
