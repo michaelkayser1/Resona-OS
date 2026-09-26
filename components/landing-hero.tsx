@@ -8,32 +8,32 @@ const FEATURES = [
   {
     icon: GitBranch,
     title: "Parallel Agent Worktrees",
-    description: "Each AI agent operates in its own git worktree. Zero conflicts. Real isolation.",
+    description: "Explore isolated git worktrees as a proposed boundary for agent development.",
   },
   {
     icon: Shield,
     title: "Guardian Merge Gate",
-    description: "Deterministic scoring engine evaluates every PR before merge. No silent merges.",
+    description: "Prototype scoring and review controls for proposed code changes.",
   },
   {
     icon: Activity,
     title: "Live Agent Dashboard",
-    description: "Real-time visibility into agent runs, CI status, Guardian scores, and deploy state.",
+    description: "Dashboard views for examining agent activity and review status.",
   },
   {
     icon: Lock,
     title: "Immutable Audit Chain",
-    description: "SHA-256 hash-chained event log. Every action recorded. Full traceability.",
+    description: "Explore hash-chained receipts; external completeness and custody still require validation.",
   },
   {
     icon: Cpu,
     title: "Enterprise RBAC",
-    description: "Role-based access control with Admin, Developer, Clinician, Reviewer, and Guardian roles.",
+    description: "Prototype roles for studying who may propose, review, and approve an action.",
   },
   {
     icon: FileText,
-    title: "Compliance Ready",
-    description: "HIPAA-safe architecture with PHI guardrails. Zero sensitive data in dev logs.",
+    title: "Validation Required",
+    description: "No clinical or compliance approval is implied. Do not enter patient information.",
   },
 ]
 
@@ -48,18 +48,18 @@ export function LandingHero() {
         <div className="mx-auto max-w-4xl text-center">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-4 py-1.5">
             <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-            <span className="font-mono text-xs text-muted-foreground">Multi-Agent Development Platform</span>
+            <span className="font-mono text-xs text-muted-foreground">Research prototype · agent governance</span>
           </div>
 
           <h1 className="text-balance text-4xl font-bold tracking-tight text-foreground md:text-6xl lg:text-7xl">
-            Ship code with
-            <span className="text-primary"> autonomous agents</span>
+            Explore controls for
+            <span className="text-primary"> AI-assisted work</span>
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground md:text-lg">
-            Resona orchestrates AI coding agents through isolated git worktrees, 
-            deterministic merge gating, and immutable audit logging. 
-            Enterprise-grade compliance from day one.
+            Examine proposed boundaries for agent activity, review, and audit.
+            This interface is experimental; its controls require independent validation
+            before real-world deployment.
           </p>
 
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
@@ -86,10 +86,10 @@ export function LandingHero() {
         <div className="mx-auto max-w-6xl">
           <div className="mb-10 text-center">
             <h2 className="text-2xl font-bold text-foreground md:text-3xl">
-              Built for regulated environments
+              Questions to validate before deployment
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Every component designed with compliance, auditability, and safety in mind.
+              The dashboard illustrates controls; it does not establish regulatory or clinical readiness.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -117,16 +117,16 @@ export function LandingHero() {
               How it works
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Five specialized agents, one orchestrated pipeline.
+              An illustrative agent workflow to inspect and test.
             </p>
           </div>
           <div className="space-y-3">
             {[
-              { step: "01", title: "Spawn", desc: "Agents spawn in isolated git worktrees. Each gets its own branch, environment, and scope." },
-              { step: "02", title: "Build", desc: "Builder writes features. Tester adds coverage. Refactorer improves architecture. Clinician documents." },
-              { step: "03", title: "Score", desc: "Guardian evaluates every change via the Wobble scoring engine. Diff complexity, test confidence, dependency risk." },
-              { step: "04", title: "Gate", desc: "PRs below threshold are rejected automatically. No manual review bottleneck for high-confidence merges." },
-              { step: "05", title: "Deploy", desc: "Approved changes merge to main. Vercel deploys. Audit event logged. Dashboard updates in real-time." },
+              { step: "01", title: "Spawn", desc: "Assign a scoped worktree and proposed capabilities to an agent." },
+              { step: "02", title: "Build", desc: "Generate a change and gather test and review evidence." },
+              { step: "03", title: "Score", desc: "Inspect changes against an explicit review policy and record uncertainty." },
+              { step: "04", title: "Gate", desc: "Require an authorized reviewer before a consequential transition." },
+              { step: "05", title: "Observe", desc: "Record what actually happened after an authorized action." },
             ].map((item) => (
               <div
                 key={item.step}
@@ -150,10 +150,10 @@ export function LandingHero() {
         <div className="mx-auto max-w-2xl text-center">
           <ResonaLogo className="mx-auto mb-4 h-12 w-12" />
           <h2 className="text-2xl font-bold text-foreground md:text-3xl">
-            Ready to orchestrate?
+            Explore the prototype
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Explore the live dashboard to see agents in action.
+            Inspect the dashboard and test the proposed controls. Do not enter patient information.
           </p>
           <Link
             href="/dashboard"
