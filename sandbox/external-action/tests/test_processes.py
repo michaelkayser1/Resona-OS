@@ -99,6 +99,7 @@ class ProcessWiring(unittest.TestCase):
                     "WITNESS_AUTH_TOKEN": "witness-secret", "WITNESS_CONTENT_DB": content_path,
                     "WITNESS_LOG_DB": str(home / "witness-log.sqlite"), "WITNESS_KEY_ID": "W1",
                     "WITNESS_PRIVATE_KEY_FILE": str(witness_private),
+                    "WITNESS_ACTIVE_POLICY_SHA256": policy_hash,
                     "WITNESS_ATTEST_AUTH_TOKEN": "internal-attest-secret",
                 },
                 "executor": {
