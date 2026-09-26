@@ -29,6 +29,8 @@ The witness signs a `WitnessToken` with Ed25519 over the same unambiguous sorted
 
 The executor uses the request ID as the marker service's idempotency key. The marker service enforces a unique request ID transactionally and returns the same marker record for a retry. The executor's consumed-nonce store also uses a unique constraint and survives restart. Concurrency, crashes, and retries must never create a second marker. The external marker record, not the executor response, is the outcome source of truth.
 
+Implementation clarification (v0.1): the witness must compare the proposed `policy_sha256` with an active policy hash supplied by the policy owner outside the proposal; mere presence of a historical policy blob is insufficient authorization. The current sandbox pins one hash at witness startup. Rotation of that pin and previously issued tokens requires a separate controlled procedure. Executor nonce uniqueness is scoped to a shared durable store: independent executor stores can each redeem one token. This test-only marker remains single-row because its destination enforces request-ID idempotence; another destination must supply its own transactional idempotence or shared redemption authority before any exactly-once claim.
+
 ## Witness decision algorithm
 
 1. Reject invalid schema or duplicate keys; parse UTC timestamps strictly, with no local-time fallback.
