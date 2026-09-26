@@ -85,14 +85,19 @@ export function getAuditChain(): AuditEvent[] {
   return [...auditChain]
 }
 
-export async function verifyChainIntegrity(): Promise<{
+export interface AuditHead {
+  count: number
+  hash: string | null
+}
+
+export async function verifyAuditEvents(events: readonly AuditEvent[], expectedHead?: AuditHead): Promise<{
   valid: boolean
   brokenAt: number | null
 }> {
   let prevHash: string | null = null
 
-  for (let i = 0; i < auditChain.length; i++) {
-    const event = auditChain[i]
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i]
     if (event.prevHash !== prevHash) {
       return { valid: false, brokenAt: i }
     }
@@ -112,10 +117,14 @@ export async function verifyChainIntegrity(): Promise<{
     prevHash = expectedHash
   }
 
-  if (prevHash !== lastHash) {
-    return { valid: false, brokenAt: auditChain.length - 1 }
+  if (expectedHead && (events.length !== expectedHead.count || prevHash !== expectedHead.hash)) {
+    return { valid: false, brokenAt: events.length }
   }
   return { valid: true, brokenAt: null }
+}
+
+export async function verifyChainIntegrity(): Promise<{ valid: boolean; brokenAt: number | null }> {
+  return verifyAuditEvents(auditChain, { count: auditChain.length, hash: lastHash })
 }
 
 export function resetAuditChain(): void {
