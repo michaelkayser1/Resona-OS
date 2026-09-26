@@ -153,7 +153,9 @@ class Executor:
                 raise Hold("MARKER_MISMATCH")
             self.log.append({"request_id": request_id, "decision": "DISPATCHED",
                              "fingerprint": fp, "at_utc": iso(moment)})
-            return result
+            return {"request_id": request_id, "decision": "DISPATCHED",
+                    "reason": "MARKER_CONFIRMED", "recorded_at_utc": iso(moment),
+                    "marker_record_id": request_id}
         except Hold as exc:
             self.log.append({"request_id": str(request_id), "decision": "HOLD",
                              "reason": exc.code, "at_utc": iso(now)})
