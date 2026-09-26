@@ -1,7 +1,7 @@
 {
   "name": "Resona v0",
   "short_name": "Resona",
-  "description": "Enterprise-grade multi-agent development platform with Guardian merge gating and compliance-ready architecture.",
+  "description": "Research prototype for agent review, scoring, and audit concepts. Not validated for clinical or production use.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1a1d2e",
