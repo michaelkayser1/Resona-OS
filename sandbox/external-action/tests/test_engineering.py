@@ -13,13 +13,30 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from resona_sandbox.actors import Executor, Marker, Witness
 from resona_sandbox.storage import ContentStore, HeadCustodian, MarkerStore, NonceStore, OpLog
-from resona_sandbox.wire import Hold, b64, canonical, fingerprint, parse_json, sha, sign_approval
+from resona_sandbox.wire import Hold, b64, canonical, fingerprint, parse_json, sha, sign_approval, sign_token, approvals_hash
 
 NOW = datetime(2026, 9, 26, 16, 0, tzinfo=timezone.utc)
 ROLES = ("policy_owner", "domain_adjudicator", "external_validator")
 
 
 class Engineering(unittest.TestCase):
+    def test_frozen_wire_vector(self):
+        vector = json.loads((Path(__file__).parent / "vectors/fingerprint-v0.1.json").read_text())
+        fp = fingerprint(vector["action"])
+        self.assertEqual(fp, vector["action_fingerprint"])
+        approval = sign_approval({"role": "policy_owner", "actor_id": "A1", "key_id": "K1",
+                                  "action_fingerprint": fp},
+                                 Ed25519PrivateKey.from_private_bytes(b"\x01" * 32))
+        self.assertEqual(approval["signature"], vector["approval_signature"])
+        token = sign_token({
+            "schema_version": "0.1", "request_id": "R1", "action_fingerprint": fp,
+            "policy_sha256": "a" * 64, "evidence_sha256": "b" * 64,
+            "approvals_sha256": approvals_hash([approval]), "witness_key_id": "W1",
+            "nonce": "N1", "not_before_utc": "2026-09-26T16:00:00Z",
+            "expires_at_utc": "2026-09-26T16:01:00Z",
+        }, Ed25519PrivateKey.from_private_bytes(b"\x04" * 32))
+        self.assertEqual(token["signature"], vector["witness_signature"])
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
