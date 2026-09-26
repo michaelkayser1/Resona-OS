@@ -105,9 +105,16 @@ export async function verifyChainIntegrity(): Promise<{
       metadata: event.metadata,
       prevHash: event.prevHash,
     })
-    prevHash = await computeHash(payload)
+    const expectedHash = await computeHash(payload)
+    if (event.hash !== expectedHash) {
+      return { valid: false, brokenAt: i }
+    }
+    prevHash = expectedHash
   }
 
+  if (prevHash !== lastHash) {
+    return { valid: false, brokenAt: auditChain.length - 1 }
+  }
   return { valid: true, brokenAt: null }
 }
 
