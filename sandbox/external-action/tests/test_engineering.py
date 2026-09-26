@@ -87,12 +87,20 @@ class Engineering(unittest.TestCase):
     def test_fingerprint_and_duplicate_fields(self):
         p = self.proposal()
         self.assertEqual(fingerprint(p["action"]), p["action_fingerprint"])
+        reordered = dict(reversed(list(p["action"].items())))
+        self.assertEqual(fingerprint(reordered), p["action_fingerprint"])
+        spaced = json.dumps(reordered, indent=2).encode()
+        self.assertEqual(fingerprint(parse_json(spaced)), p["action_fingerprint"])
         with self.assertRaisesRegex(Hold, "DUPLICATE_KEY"):
             parse_json(b'{"request_id":"R1","request_id":"R2"}')
         with self.assertRaisesRegex(Hold, "NON_STRING_VALUE"):
             canonical({"x": 0.2})
         with self.assertRaisesRegex(Hold, "INVALID_FIELDS"):
+            fingerprint({**p["action"], "marker": 1})
+        with self.assertRaisesRegex(Hold, "INVALID_FIELDS"):
             fingerprint({**p["action"], "extra": "value"})
+        with self.assertRaisesRegex(Hold, "INVALID_FIELDS"):
+            self.witness.decide({**p, "algorithm": "none"}, NOW)
 
     def test_exactly_one_marker_and_restart_replay(self):
         p = self.proposal()
@@ -147,12 +155,17 @@ class Engineering(unittest.TestCase):
         self.assertTrue(all(x == {"request_id": "R1", "marker": "M1"} for x in results))
         self.assertEqual(self.marker_store.all(), [("R1", "M1")])
 
-    def test_concurrent_executor_submissions_dispatch_at_most_once(self):
+    def test_two_executor_instances_race_to_redeem_one_token(self):
         p = self.proposal()
         token = self.witness.decide(p, NOW, nonce="shared-nonce")
-        def attempt(_):
+        executors = [
+            Executor(NonceStore(str(self.root / "nonce.sqlite")),
+                     {"W1": self.witness_key.public_key()}, self.marker.write, self.executor_log)
+            for _ in range(2)
+        ]
+        def attempt(index):
             try:
-                self.executor.dispatch(p, token, NOW)
+                executors[index % 2].dispatch(p, token, NOW)
                 return "DISPATCHED"
             except Hold as exc:
                 return exc.code
@@ -161,6 +174,46 @@ class Engineering(unittest.TestCase):
         self.assertEqual(results.count("DISPATCHED"), 1)
         self.assertEqual(results.count("REPLAY"), 7)
         self.assertEqual(self.marker_store.all(), [("R1", "M1")])
+
+    def test_marker_write_then_lost_ack_requires_reconciliation(self):
+        p = self.proposal()
+        token = self.witness.decide(p, NOW, nonce="lost-ack")
+        def lost_ack(action, when):
+            self.marker.write(action, when)
+            raise Hold("MARKER_UNAVAILABLE")
+        executor = Executor(self.nonces, {"W1": self.witness_key.public_key()},
+                            lost_ack, self.executor_log)
+        with self.assertRaisesRegex(Hold, "MARKER_UNAVAILABLE"):
+            executor.dispatch(p, token, NOW)
+        self.assertEqual(self.marker_store.all(), [("R1", "M1")])
+        with self.assertRaisesRegex(Hold, "REPLAY"):
+            self.executor.dispatch(p, token, NOW)
+        self.assertEqual(self.marker_store.all(), [("R1", "M1")])
+
+    def test_exact_expiry_boundary_and_missing_token(self):
+        p = self.proposal()
+        token = self.witness.decide(p, NOW, nonce="expiry")
+        with self.assertRaisesRegex(Hold, "EXPIRED_OR_EARLY"):
+            self.executor.dispatch(p, token, NOW + timedelta(seconds=60))
+        with self.assertRaisesRegex(Hold, "INVALID_FIELDS"):
+            self.executor.dispatch(p, None, NOW)
+        with self.assertRaisesRegex(Hold, "INVALID_FIELDS"):
+            self.executor.dispatch({**p, "coherence": "maximal"}, None, NOW)
+        self.assertEqual(self.marker_store.all(), [])
+        self.executor.dispatch(p, token, NOW + timedelta(seconds=59))
+        self.assertEqual(self.marker_store.all(), [("R1", "M1")])
+
+    def test_restored_marker_backup_reopens_local_uniqueness(self):
+        backup_path = self.root / "marker-backup.sqlite"
+        with sqlite3.connect(self.root / "marker.sqlite") as source, sqlite3.connect(backup_path) as backup:
+            source.backup(backup)
+        self.marker.write(self.proposal()["action"], NOW)
+        self.assertEqual(self.marker_store.all(), [("R1", "M1")])
+        restored = MarkerStore(str(backup_path))
+        self.assertEqual(restored.all(), [])
+        # This demonstrates a limit, not successful rollback protection.
+        restored.append("R1", "M1")
+        self.assertEqual(restored.all(), [("R1", "M1")])
 
     def test_same_actor_cannot_fill_two_signed_roles(self):
         policy = json.loads(json.dumps(self.policy))
