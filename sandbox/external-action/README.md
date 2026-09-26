@@ -11,7 +11,7 @@ python3 -m venv .venv
 PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -v
 ```
 
-These tests exercise actor logic in one process. They are explicitly **not** the external-action acceptance run.
+These engineering tests exercise actor logic and one four-process loopback smoke path on a single host. The process test creates keys and credentials under one test user. It verifies wiring, not separate trust domains. These tests are explicitly **not** the external-action acceptance run.
 
 ## Process adapters
 
