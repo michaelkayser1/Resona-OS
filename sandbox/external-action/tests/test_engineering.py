@@ -80,7 +80,10 @@ class Engineering(unittest.TestCase):
     def test_exactly_one_marker_and_restart_replay(self):
         p = self.proposal()
         token = self.witness.decide(p, NOW, nonce="fixed-nonce")
-        self.assertEqual(self.executor.dispatch(p, token, NOW), {"request_id": "R1", "marker": "M1"})
+        self.assertEqual(self.executor.dispatch(p, token, NOW), {
+            "request_id": "R1", "decision": "DISPATCHED", "reason": "MARKER_CONFIRMED",
+            "recorded_at_utc": "2026-09-26T16:00:00Z", "marker_record_id": "R1",
+        })
         fresh = Executor(NonceStore(str(self.root / "nonce.sqlite")),
                          {"W1": self.witness_key.public_key()}, self.marker.write, self.executor_log)
         with self.assertRaisesRegex(Hold, "REPLAY"):
