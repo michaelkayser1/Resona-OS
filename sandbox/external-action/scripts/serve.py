@@ -50,6 +50,8 @@ def marker_client(action, moment):
 
 
 def main():
+    if os.environ.get("RESONA_SANDBOX_MODE") != "local_test":
+        raise SystemExit("Sandbox process requires RESONA_SANDBOX_MODE=local_test")
     parser = argparse.ArgumentParser()
     parser.add_argument("role", choices=("marker", "witness", "executor", "custodian"))
     parser.add_argument("--port", type=int, required=True)
