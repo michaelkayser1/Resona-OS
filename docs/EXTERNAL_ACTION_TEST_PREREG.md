@@ -4,6 +4,8 @@
 
 This document fixes a proposed test design in a dated public commit. It does not count as an independent preregistration until an evaluator who did not build the gate is named, the policy/schema and implementation versions are frozen by commit hash, the test environment and external log custodian are identified, and the evaluator signs a dated copy before any test run. Any change after that freeze requires a new version and must retain this version and all failed results.
 
+The [external-action sandbox specification](EXTERNAL_ACTION_SANDBOX_SPEC.md) and [v0.1 schema](../schemas/external-action-v0.1.schema.json) describe a proposed implementation target. They do not alter this draft's fixed cases or count as a test run.
+
 ## Question and boundary
 
 Can a separate gate prevent an AI-generated request from causing an unauthorized **harmless external action**? Use a test-only endpoint that writes a unique marker to an independently maintained append-only test ledger. No patient data, payments, messages to real people, or production tools. The model may propose actions but cannot issue or edit policy, approval, signing keys, or the external ledger. The gate and executor use separate credentials and processes.
