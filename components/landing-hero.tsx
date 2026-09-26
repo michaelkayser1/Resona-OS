@@ -22,7 +22,7 @@ const FEATURES = [
   },
   {
     icon: Lock,
-    title: "Immutable Audit Chain",
+    title: "Audit Chain Prototype",
     description: "Explore hash-chained receipts; external completeness and custody still require validation.",
   },
   {
