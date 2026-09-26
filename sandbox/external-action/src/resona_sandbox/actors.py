@@ -1,5 +1,6 @@
 """Isolated actor logic. Adapters supply distinct credentials and processes."""
 import base64
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -39,14 +40,20 @@ def validate_proposal(proposal):
 
 
 class Witness:
-    def __init__(self, content: ContentStore, key_id: str, private: Ed25519PrivateKey, log: OpLog):
+    def __init__(self, content: ContentStore, key_id: str, private: Ed25519PrivateKey, log: OpLog,
+                 active_policy_sha256: str):
+        if not isinstance(active_policy_sha256, str) or re.fullmatch(r"[0-9a-f]{64}", active_policy_sha256) is None:
+            raise ValueError("Witness requires an independently pinned active policy SHA-256")
         self.content, self.key_id, self.private, self.log = content, key_id, private, log
+        self.active_policy_sha256 = active_policy_sha256
 
     def decide(self, proposal: dict, now: datetime, nonce: str | None = None):
         request_id = proposal.get("action", {}).get("request_id", "invalid") if isinstance(proposal, dict) else "invalid"
         try:
             fp = validate_proposal(proposal)
             action = proposal["action"]
+            if action["policy_sha256"] != self.active_policy_sha256:
+                raise Hold("POLICY_NOT_ACTIVE")
             policy_bytes = self.content.get("policy", action["policy_sha256"])
             self.content.get("evidence", action["evidence_sha256"])
             policy = parse_json(policy_bytes)
