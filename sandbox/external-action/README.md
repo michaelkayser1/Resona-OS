@@ -21,7 +21,7 @@ These engineering tests exercise actor logic and one four-process loopback smoke
 | --- | --- | --- |
 | Marker | 8111 | `MARKER_AUTH_TOKEN`, `MARKER_DB`, `MARKER_LOG_DB` |
 | Witness | 8112 | `WITNESS_AUTH_TOKEN` (intake), distinct `WITNESS_ATTEST_AUTH_TOKEN` (trusted evaluator), `WITNESS_CONTENT_DB`, `WITNESS_LOG_DB`, `WITNESS_KEY_ID`, `WITNESS_PRIVATE_KEY_FILE`, `WITNESS_ACTIVE_POLICY_SHA256` |
-| Executor | 8113 | `EXECUTOR_AUTH_TOKEN`, `EXECUTOR_NONCE_DB`, `EXECUTOR_LOG_DB`, `WITNESS_KEY_ID`, `WITNESS_PUBLIC_KEY_FILE`, `MARKER_URL`, `MARKER_AUTH_TOKEN` |
+| Executor | 8113 | `EXECUTOR_AUTH_TOKEN`, `EXECUTOR_NONCE_DB`, `EXECUTOR_LOG_DB`, `EXECUTOR_ACTIVE_POLICY_SHA256`, `WITNESS_KEY_ID`, `WITNESS_PUBLIC_KEY_FILE`, `MARKER_URL`, `MARKER_AUTH_TOKEN` |
 | Head custodian | 8114 | `CUSTODIAN_AUTH_TOKEN`, `CUSTODIAN_DB`, `CUSTODIAN_KEYS_FILE` |
 
 From separate shells, with distinct credentials and file permissions:
@@ -38,7 +38,7 @@ Each process requires `RESONA_SANDBOX_MODE=local_test` in its environment and re
 
 Only `127.0.0.1` is bound. The marker endpoint accepts a bearer credential held by the executor; it enforces request-ID uniqueness in SQLite. The witness content store is opened read-only in the witness process and must be populated and protected by a different policy owner before testing. The witness cannot write marker records, and the marker cannot read policy or signing keys. Keep each database, key, and bearer credential in actor-specific operating-system custody.
 
-The policy owner must supply the current 64-character lowercase SHA-256 digest as `WITNESS_ACTIVE_POLICY_SHA256` outside the proposal. The witness rejects any other policy hash, even if the old policy and its signing keys remain in the content store. Changing that environment value requires a controlled witness restart; this prototype does not provide authenticated policy rotation or revocation across already-issued unexpired tokens.
+The policy owner must supply the current 64-character lowercase SHA-256 digest as `WITNESS_ACTIVE_POLICY_SHA256` outside the proposal. The executor separately requires `EXECUTOR_ACTIVE_POLICY_SHA256` and rejects even a correctly signed, unexpired token whose policy digest differs. The witness rejects any other policy hash, even if the old policy and its signing keys remain in the content store. Changing either pin requires a controlled restart. Configuration custody and synchronized rollout are external responsibilities: old executor processes that have not restarted can still redeem old tokens; a witness and executor on different pins fail closed for new tokens. The two variables in this single-host smoke test do not establish independently held authority or an atomic rotation instant.
 
 Generate **separate** test-only Ed25519 keys with `scripts/gen_key.py`. The witness token key, three approver keys, and each actor's log-head key must differ. `CUSTODIAN_KEYS_FILE` is JSON mapping actor names to their raw public key hex strings. The custodian accepts signed heads through `POST /heads`; `scripts/publish_head.py` publishes a head from an actor's own log. Publishing is explicit, not automatic: **a missing or stale externally held head means no completeness claim**.
 
