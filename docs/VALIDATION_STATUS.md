@@ -11,7 +11,7 @@
 
 ## Source-level cautions
 
-- `lib/audit/audit-logger.ts` holds the chain in process memory. Its current integrity check checks the previous-hash links but does not compare each stored event hash with a recomputed hash. It is not a durable or independently attested audit log.
+- `lib/audit/audit-logger.ts` holds the chain in process memory. Its integrity check compares each stored hash with a recomputed hash and checks the previous-hash links. It is still not a durable or independently attested audit log; the chain is process-local and can be reset.
 - `lib/agents/runner.ts` models branch names and statuses in memory. Its `mergeAgent` function returns a status; the function alone does not perform a GitHub merge or authenticate an approver.
 - `lib/compliance/redaction.ts` matches a limited set of patterns. Pattern matching alone cannot establish that logs contain no protected health information.
 - The control-law console labels most numeric calibration values `CALIBRATION_PENDING` and blocks one institutional integrity floor. A simulation score must not be treated as a validated authorization.
