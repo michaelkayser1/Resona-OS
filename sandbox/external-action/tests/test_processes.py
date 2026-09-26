@@ -124,7 +124,8 @@ class ProcessWiring(unittest.TestCase):
                 token = post(witness_url + "/attest", "internal-attest-secret", proposal)
                 result = post(executor_url + "/execute", "executor-secret",
                               {"proposal": proposal, "token": token})
-                self.assertEqual(result, {"request_id": "smoke_request", "marker": "smoke_marker"})
+                self.assertEqual(result["decision"], "DISPATCHED")
+                self.assertEqual(result["marker_record_id"], "smoke_request")
                 with self.assertRaises(error.HTTPError) as replay:
                     post(executor_url + "/execute", "executor-secret", {"proposal": proposal, "token": token})
                 self.assertEqual(replay.exception.code, 409)
