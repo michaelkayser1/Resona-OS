@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+*.sqlite
+*.sqlite-*
+*.private.hex
+*.public.hex
+*.key
+*.pub
+*.token
+*secret*
