@@ -27,11 +27,14 @@ These tests exercise actor logic in one process. They are explicitly **not** the
 From separate shells, with distinct credentials and file permissions:
 
 ```bash
+export RESONA_SANDBOX_MODE=local_test  # set separately in each shell
 PYTHONPATH=src python3 scripts/serve.py marker --port 8111
 PYTHONPATH=src python3 scripts/serve.py witness --port 8112
 PYTHONPATH=src python3 scripts/serve.py executor --port 8113
 PYTHONPATH=src python3 scripts/serve.py custodian --port 8114
 ```
+
+Each process requires `RESONA_SANDBOX_MODE=local_test` in its environment and refuses to start otherwise. The sandbox directory is not imported by the Next.js application. This guard prevents accidental startup through the documented adapter; it is not a security boundary against someone who can run arbitrary code or set environment variables.
 
 Only `127.0.0.1` is bound. The marker endpoint accepts a bearer credential held by the executor; it enforces request-ID uniqueness in SQLite. The witness content store is opened read-only in the witness process and must be populated and protected by a different policy owner before testing. The witness cannot write marker records, and the marker cannot read policy or signing keys. Keep each database, key, and bearer credential in actor-specific operating-system custody.
 
@@ -42,6 +45,9 @@ The process API is `POST /proposals` on witness for an intake acknowledgement (`
 ## Scope and known limits
 
 - SQLite provides durable uniqueness, but an operator with database access can alter or delete it. Signed heads help detect changes **only when a separate custodian already holds a later head**; they do not prove every event was logged. The actor's own process cannot certify its independence.
+- The custodian currently checks signatures and a monotonic count, but **does not verify an append-only consistency proof between two heads**. A signer can equivocate with a later fabricated head. Head publication is manual; neither non-equivocation nor independent custody has been demonstrated.
+- A backup restore of the marker and nonce stores can reopen uniqueness and replay windows. An external marker record and held head are needed to detect and reconcile rollback; this code does not automatically repair it.
+- Local wall clocks can be skewed. The executor enforces the exact token expiry boundary against its UTC clock, but the test does not establish a trusted shared clock.
 - The executor consumes its nonce before dispatch. On an uncertain marker-service result it holds for reconciliation; it does not silently retry under a new token. The marker service's request-ID uniqueness prevents a duplicate on a controlled retry.
 - The content store is populated by the test setup. Freeze policy bytes, evidence, signer registry, filesystem permissions, clocks, code hashes, and evaluator identity before any registered run.
 - PLV, CUST, and coherence slope are absent from witness and executor decision code. There is no validated threshold.
