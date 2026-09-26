@@ -65,7 +65,8 @@ def main():
         actor = Marker(MarkerStore(required("MARKER_DB")), OpLog(required("MARKER_LOG_DB"), "marker"))
     elif role == "witness":
         actor = Witness(ContentStore(required("WITNESS_CONTENT_DB"), read_only=True), required("WITNESS_KEY_ID"),
-                        private("WITNESS_PRIVATE_KEY_FILE"), OpLog(required("WITNESS_LOG_DB"), "witness"))
+                        private("WITNESS_PRIVATE_KEY_FILE"), OpLog(required("WITNESS_LOG_DB"), "witness"),
+                        required("WITNESS_ACTIVE_POLICY_SHA256"))
         attest_auth = required("WITNESS_ATTEST_AUTH_TOKEN")
         if attest_auth == auth:
             raise SystemExit("Witness intake and attestation tokens must differ")
