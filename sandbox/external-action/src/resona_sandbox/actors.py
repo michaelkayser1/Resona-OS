@@ -132,8 +132,11 @@ class Marker:
 
 class Executor:
     def __init__(self, nonces: NonceStore, witness_keys: dict[str, Ed25519PublicKey],
-                 marker_client, log: OpLog):
+                 marker_client, log: OpLog, active_policy_sha256: str):
+        if not isinstance(active_policy_sha256, str) or re.fullmatch(r"[0-9a-f]{64}", active_policy_sha256) is None:
+            raise ValueError("Executor requires an independently pinned active policy SHA-256")
         self.nonces, self.witness_keys, self.marker_client, self.log = nonces, witness_keys, marker_client, log
+        self.active_policy_sha256 = active_policy_sha256
 
     def dispatch(self, proposal: dict, token: dict, now: datetime):
         request_id = proposal.get("action", {}).get("request_id", "invalid") if isinstance(proposal, dict) else "invalid"
@@ -151,6 +154,8 @@ class Executor:
                 "approvals_sha256": approvals_hash(proposal["approvals"]),
             }.items()):
                 raise Hold("TOKEN_SCOPE_MISMATCH")
+            if token["policy_sha256"] != self.active_policy_sha256:
+                raise Hold("POLICY_NOT_ACTIVE")
             moment = utc(iso(now))
             if not utc(token["not_before_utc"]) <= moment < utc(token["expires_at_utc"]):
                 raise Hold("EXPIRED_OR_EARLY")
