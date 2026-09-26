@@ -33,6 +33,15 @@ def post(url, token, payload):
 
 
 class ProcessWiring(unittest.TestCase):
+    def test_process_refuses_start_without_local_test_mode(self):
+        env = {**os.environ, "PYTHONPATH": str(ROOT / "src")}
+        env.pop("RESONA_SANDBOX_MODE", None)
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/serve.py"), "marker", "--port", str(port())],
+            env=env, capture_output=True, text=True, timeout=5)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("RESONA_SANDBOX_MODE=local_test", result.stderr)
+
     def test_separate_processes_and_custodian_head(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
@@ -106,7 +115,8 @@ class ProcessWiring(unittest.TestCase):
             processes = []
             try:
                 for role, selected_port in zip(settings, (marker_port, witness_port, executor_port, custodian_port)):
-                    env = {**os.environ, "PYTHONPATH": str(ROOT / "src"), **settings[role]}
+                    env = {**os.environ, "PYTHONPATH": str(ROOT / "src"),
+                           "RESONA_SANDBOX_MODE": "local_test", **settings[role]}
                     processes.append(subprocess.Popen(
                         [sys.executable, str(ROOT / "scripts/serve.py"), role, "--port", str(selected_port)],
                         env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE))
