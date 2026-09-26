@@ -1,6 +1,6 @@
 # Resona OS
 
-Clinical-grade AI safety middleware for structured response gating, auditability, and regulated deployment.
+An experimental architecture for structured AI outputs, policy checks, and auditable decisions. Designed for evaluation in settings where authority and evidence matter.
 
 **Status:** Active development · Research and development platform  
 **Contact:** mike@kayser-medical.com  
@@ -10,7 +10,7 @@ Clinical-grade AI safety middleware for structured response gating, auditability
 
 ## What It Is
 
-Resona OS is a middleware architecture that sits between large language models (LLMs) and end-user interfaces, enforcing structured outputs, validation layers, and logging controls before responses reach users.
+Resona OS explores a middleware layer between large language models (LLMs) and applications. The intended design validates response structure, applies explicit policy checks, and records decisions before a proposed action is considered for execution. The components in this repository and related demos do not establish end-to-end enforcement in a production deployment.
 
 Current development is an active n=1 self-study. Expanded cohort protocols in development.
 
@@ -26,11 +26,11 @@ Modern LLMs generate powerful outputs, but regulated environments require:
 - Separation of intelligence from enforcement
 - Middleware-based safety architecture
 
-Resona OS provides that enforcement layer.
+Resona OS is a research implementation of that approach. Each deployment needs its own policy, validation evidence, security review, and independent authorization before consequential use.
 
 ---
 
-## Core Capabilities
+## Design Goals
 
 - Structured output enforcement
 - Multi-layer response validation
@@ -64,13 +64,13 @@ Application Interface
 - Separation of generation from enforcement
 - Deterministic validation over probabilistic trust
 - Compatibility with existing model providers
-- Regulated-environment readiness
+- Evaluation for regulated environments before any claim of readiness
 
 ---
 
 ## Example Middleware Contract
 
-Structured response envelope enforced by Resona OS:
+Illustrative response envelope (a proposed interface, not a verified production guarantee):
 ```json
 {
   "request_id": "uuid",
@@ -90,7 +90,8 @@ Structured response envelope enforced by Resona OS:
 
 ## Important Notices
 
-- Research and development platform only
+- Research and development platform only; the current study is n=1
+- No demonstrated clinical performance, independent validation, or regulatory approval
 - Not a medical device
 - Not a clinical decision system
 - Not FDA cleared
@@ -99,7 +100,7 @@ Structured response envelope enforced by Resona OS:
 
 ## Related Work
 
-- [QOTE Framework](https://v0-qote-research-app.vercel.app/) — Oscillatory coherence theory underlying Resona OS
+- [QOTE research archive](https://github.com/michaelkayser1/QOTE-Deploy-Pro.) — historical exploratory work; its interpretations and numerical thresholds are not prerequisites for the current control architecture
 - [Substack](https://substack.com/@michaelkayser) — Research writing and essays
 - [kayser-medical.com](https://kayser-medical.com)
 
