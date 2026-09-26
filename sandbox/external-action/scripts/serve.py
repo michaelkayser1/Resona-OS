@@ -12,7 +12,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 
 from resona_sandbox.actors import Executor, Marker, Witness, validate_proposal
 from resona_sandbox.storage import ContentStore, HeadCustodian, MarkerStore, NonceStore, OpLog
-from resona_sandbox.wire import Hold, iso, parse_json
+from resona_sandbox.wire import Hold, ID_RE, iso, parse_json
 
 
 def required(name):
@@ -95,6 +95,7 @@ def main():
             if length <= 0 or length > 65536:
                 self.respond(400, {"error": "INVALID_LENGTH"})
                 return
+            body = None
             try:
                 body = parse_json(self.rfile.read(length))
                 if role == "marker" and self.path == "/marker":
@@ -121,7 +122,17 @@ def main():
                 if role == "witness" and self.path == "/proposals":
                     actor.log.append({"request_id": "invalid", "decision": "HOLD",
                                       "reason": exc.code, "at_utc": iso(now())})
-                self.respond(409, {"decision": "HOLD", "reason": exc.code})
+                if role == "executor" and self.path == "/execute":
+                    proposal = body.get("proposal", {}) if isinstance(body, dict) else {}
+                    action = proposal.get("action", {}) if isinstance(proposal, dict) else {}
+                    request_id = action.get("request_id", "invalid") if isinstance(action, dict) else "invalid"
+                    if not isinstance(request_id, str) or not ID_RE.fullmatch(request_id):
+                        request_id = "invalid"
+                    self.respond(409, {"request_id": str(request_id), "decision": "HOLD",
+                                       "reason": exc.code, "recorded_at_utc": iso(now()),
+                                       "marker_record_id": None})
+                else:
+                    self.respond(409, {"decision": "HOLD", "reason": exc.code})
             except Exception:
                 self.respond(500, {"error": "INTERNAL_ERROR"})
 
