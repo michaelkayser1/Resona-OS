@@ -1,7 +1,6 @@
 # Resona OS: implementation and validation status
 
-**As of September 26, 2026.** This is a source-level inventory, not independent certification. Status can change as the repositories evolve.
-
+**As of September 26, 2026.** This is a source-level inventory, not independent certification. Status can change as the repositories evolve.\n\n> **Historical result withdrawn:** Earlier passes of this repository's audit verifier do not establish stored-hash or payload tamper detection. See [Historical validity correction](#historical-validity-correction-september-26-2026).\n
 | Surface | What is present | What remains unproven |
 | --- | --- | --- |
 | [Resona chat demo](https://github.com/michaelkayser1/v0-new-project-RESONA) | A deployed chat interface and API route | A separately authorized gate for consequential action, clinical accuracy, and end-to-end safety |
@@ -42,3 +41,10 @@ A separately described **six-fixture Witness Ledger suite** has not been located
 The expanded regression tests cover stored-hash alteration, payload alteration, broken previous-hash linkage, reordering, middle deletion, and tail truncation. The unanchored truncated prefix correctly passes internal checks; it fails only when checked against an expected count and head hash. The current in-process head is not an external anchor. A separately controlled, persisted head and independent custody are prerequisites for a meaningful completeness claim.
 
 See [the proposed external-action preregistration](EXTERNAL_ACTION_TEST_PREREG.md). It is a draft protocol, not a completed external evaluation.
+
+## Public-surface reconciliation (open)
+
+- [Kayser Medical](https://www.kayser-medical.com/) labels the chat as a demo and links this validation status; the live chat also displays a research-demo notice.
+- [QOTE research app](https://v0-qote-research-app.vercel.app/) remains online with the title “Quantum Oscillator Theory of Everything” and a description asserting a shared topology across several domains. Its Vercel project exposes no linked GitHub source in the deployment metadata available here. **Uncorrected public claim**; the GitHub archive banner does not update this deployment. Treat its old claims as historical hypotheses pending an on-page archive label or retirement.
+- The [QOTE repository](https://github.com/michaelkayser1/QOTE-Deploy-Pro.) carries a historical notice, but the original stronger claims remain below it for provenance.
+- Substack/X and language in any provisional patent have **not** been exhaustively audited. The Substack feed was unavailable during this review; no patent text or filing identifier was supplied. No claim of cross-platform consistency is made. A dated claim inventory with URLs and exact passages is needed before asserting reconciliation.
