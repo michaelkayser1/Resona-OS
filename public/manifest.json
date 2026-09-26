@@ -1,0 +1,16 @@
+{
+  "name": "Resona v0",
+  "short_name": "Resona",
+  "description": "Research prototype for agent review, scoring, and audit concepts. Not validated for clinical or production use.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1d2e",
+  "theme_color": "#1a1d2e",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
