@@ -73,7 +73,8 @@ def main():
     elif role == "executor":
         actor = Executor(NonceStore(required("EXECUTOR_NONCE_DB")),
                          {required("WITNESS_KEY_ID"): public("WITNESS_PUBLIC_KEY_FILE")},
-                         marker_client, OpLog(required("EXECUTOR_LOG_DB"), "executor"))
+                         marker_client, OpLog(required("EXECUTOR_LOG_DB"), "executor"),
+                         required("EXECUTOR_ACTIVE_POLICY_SHA256"))
     else:
         keys = json.loads(Path(required("CUSTODIAN_KEYS_FILE")).read_text())
         actor = HeadCustodian(required("CUSTODIAN_DB"),
