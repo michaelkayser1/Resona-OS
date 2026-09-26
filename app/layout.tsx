@@ -14,8 +14,8 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'Resona v0 | Multi-Agent Development Platform',
-  description: 'Enterprise-grade multi-agent orchestration with Guardian merge gating, audit logging, and compliance-ready architecture.',
+  title: 'Resona OS | Research Prototype',
+  description: 'Explore an experimental agent governance dashboard, state checks, and audit concepts. Not validated for clinical or production use.',
   generator: 'v0.app',
   icons: {
     icon: [
