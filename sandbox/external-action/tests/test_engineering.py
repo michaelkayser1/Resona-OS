@@ -67,7 +67,7 @@ class Engineering(unittest.TestCase):
         self.witness = Witness(self.content, "W1", self.witness_key, self.witness_log, self.policy_hash)
         self.marker = Marker(self.marker_store, self.marker_log)
         self.executor = Executor(
-            self.nonces, {"W1": self.witness_key.public_key()}, self.marker.write, self.executor_log)
+            self.nonces, {"W1": self.witness_key.public_key()}, self.marker.write, self.executor_log, self.policy_hash)
 
     def proposal(self, request_id="R1", **changes):
         action = {
@@ -110,7 +110,7 @@ class Engineering(unittest.TestCase):
             "recorded_at_utc": "2026-09-26T16:00:00Z", "marker_record_id": "R1",
         })
         fresh = Executor(NonceStore(str(self.root / "nonce.sqlite")),
-                         {"W1": self.witness_key.public_key()}, self.marker.write, self.executor_log)
+                         {"W1": self.witness_key.public_key()}, self.marker.write, self.executor_log, self.policy_hash)
         with self.assertRaisesRegex(Hold, "REPLAY"):
             fresh.dispatch(p, token, NOW)
         self.assertEqual(self.marker_store.all(), [("R1", "M1")])
@@ -161,7 +161,7 @@ class Engineering(unittest.TestCase):
         token = self.witness.decide(p, NOW, nonce="shared-nonce")
         executors = [
             Executor(NonceStore(str(self.root / "nonce.sqlite")),
-                     {"W1": self.witness_key.public_key()}, self.marker.write, self.executor_log)
+                     {"W1": self.witness_key.public_key()}, self.marker.write, self.executor_log, self.policy_hash)
             for _ in range(2)
         ]
         def attempt(index):
@@ -181,7 +181,7 @@ class Engineering(unittest.TestCase):
         token = self.witness.decide(p, NOW, nonce="one-token")
         executors = [Executor(NonceStore(str(self.root / f"nonce-{i}.sqlite")),
                               {"W1": self.witness_key.public_key()}, self.marker.write,
-                              self.executor_log) for i in range(2)]
+                              self.executor_log, self.policy_hash) for i in range(2)]
         with ThreadPoolExecutor(max_workers=2) as pool:
             results = list(pool.map(lambda e: e.dispatch(p, token, NOW), executors))
         self.assertEqual([r["decision"] for r in results], ["DISPATCHED", "DISPATCHED"])
@@ -205,6 +205,29 @@ class Engineering(unittest.TestCase):
             self.witness.decide(p, NOW)
         self.assertEqual(self.marker_store.all(), [])
 
+    def test_executor_pin_rejects_unexpired_old_policy_token_after_rotation(self):
+        old_proposal = self.proposal()
+        old_token = self.witness.decide(old_proposal, NOW, nonce="old-policy-token")
+        replacement = {**self.policy, "version": "v2"}
+        new_hash = self.content.put("policy", json.dumps(replacement, sort_keys=True).encode())
+        rotated_executor = Executor(self.nonces, {"W1": self.witness_key.public_key()},
+                                    self.marker.write, self.executor_log, new_hash)
+        with self.assertRaisesRegex(Hold, "POLICY_NOT_ACTIVE"):
+            rotated_executor.dispatch(old_proposal, old_token, NOW + timedelta(seconds=1))
+        self.assertEqual(self.marker_store.all(), [])
+        # A separately updated witness issues under the new pin; the executor accepts it.
+        rotated_witness = Witness(self.content, "W1", self.witness_key, self.witness_log, new_hash)
+        new_proposal = self.proposal(policy_sha256=new_hash)
+        new_token = rotated_witness.decide(new_proposal, NOW, nonce="new-policy-token")
+        self.assertEqual(rotated_executor.dispatch(new_proposal, new_token, NOW)["decision"], "DISPATCHED")
+        self.assertEqual(self.marker_store.all(), [("R1", "M1")])
+
+    def test_executor_requires_valid_policy_pin(self):
+        for bad in (None, "", "A" * 64, "x" * 64):
+            with self.assertRaisesRegex(ValueError, "active policy"):
+                Executor(self.nonces, {"W1": self.witness_key.public_key()},
+                         self.marker.write, self.executor_log, bad)
+
     def test_marker_write_then_lost_ack_requires_reconciliation(self):
         p = self.proposal()
         token = self.witness.decide(p, NOW, nonce="lost-ack")
@@ -212,7 +235,7 @@ class Engineering(unittest.TestCase):
             self.marker.write(action, when)
             raise Hold("MARKER_UNAVAILABLE")
         executor = Executor(self.nonces, {"W1": self.witness_key.public_key()},
-                            lost_ack, self.executor_log)
+                            lost_ack, self.executor_log, self.policy_hash)
         with self.assertRaisesRegex(Hold, "MARKER_UNAVAILABLE"):
             executor.dispatch(p, token, NOW)
         self.assertEqual(self.marker_store.all(), [("R1", "M1")])
