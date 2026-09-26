@@ -104,6 +104,7 @@ class ProcessWiring(unittest.TestCase):
                 },
                 "executor": {
                     "EXECUTOR_AUTH_TOKEN": "executor-secret", "EXECUTOR_NONCE_DB": str(home / "nonce.sqlite"),
+                    "EXECUTOR_ACTIVE_POLICY_SHA256": policy_hash,
                     "EXECUTOR_LOG_DB": str(home / "executor-log.sqlite"), "WITNESS_KEY_ID": "W1",
                     "WITNESS_PUBLIC_KEY_FILE": str(witness_public), "MARKER_URL": marker_url,
                     "MARKER_AUTH_TOKEN": "marker-secret",
