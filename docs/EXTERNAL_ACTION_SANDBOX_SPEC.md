@@ -31,6 +31,8 @@ The executor uses the request ID as the marker service's idempotency key. The ma
 
 Implementation clarification (v0.1): the witness must compare the proposed `policy_sha256` with an active policy hash supplied by the policy owner outside the proposal; mere presence of a historical policy blob is insufficient authorization. The current sandbox pins one hash at witness startup. Rotation of that pin and previously issued tokens requires a separate controlled procedure. Executor nonce uniqueness is scoped to a shared durable store: independent executor stores can each redeem one token. This test-only marker remains single-row because its destination enforces request-ID idempotence; another destination must supply its own transactional idempotence or shared redemption authority before any exactly-once claim.
 
+The executor also pins an active policy digest at startup, supplied outside the witness's message, and rejects old-policy tokens even when their signatures and 60-second time bounds remain valid. Independent custody and coordinated rollout of the two pins are not implemented in this single-host sandbox. An old executor process can still accept an old token until it is stopped; changing an environment variable alone does not revoke a running process.
+
 ## Witness decision algorithm
 
 1. Reject invalid schema or duplicate keys; parse UTC timestamps strictly, with no local-time fallback.
