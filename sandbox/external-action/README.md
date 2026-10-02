@@ -4,6 +4,8 @@ This is a test-only implementation of [the v0.1 sandbox interface](../../docs/EX
 
 ## Run engineering tests
 
+For a concrete runnable attack target, start with the [Resona Security Challenge](SECURITY_CHALLENGE.md): authorized write, rejected mutations and replay, destination reconciliation, and a live client fixture. It is a local engineering baseline, not independent acceptance evidence.
+
 ```bash
 cd sandbox/external-action
 python3 -m venv .venv
