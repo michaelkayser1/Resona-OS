@@ -14,6 +14,11 @@ Resona OS explores a middleware layer between large language models (LLMs) and a
 
 Current development is an active n=1 self-study. Expanded cohort protocols in development. See [implementation and validation status](docs/VALIDATION_STATUS.md) for a source-level inventory and limits, and the [external-action sandbox specification](docs/EXTERNAL_ACTION_SANDBOX_SPEC.md) for the proposed next testbed.
 
+The [adaptive oscillator research specification](docs/ADAPTIVE_OSCILLATOR_RESEARCH.md)
+provides a separate offline model, edgewise gain-boundedness analysis, and
+reproducible synthetic checks. These metrics do not authorize external actions;
+coherence-setpoint, safety-control, and task-progress guarantees remain open.
+
 ---
 
 ## Why It Exists

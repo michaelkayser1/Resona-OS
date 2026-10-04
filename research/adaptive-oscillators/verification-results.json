@@ -1,0 +1,242 @@
+{
+  "user_damped": {
+    "printed_final_100_mean_K_range": [
+      1.5996932728840714,
+      1.5996932728893427
+    ],
+    "last_recorded_R": 0.9997699282066453,
+    "last_recorded_mean_K": 1.5996932728893427,
+    "all_recorded_edge_K_range": [
+      0.9795072356198606,
+      1.5999999999919479
+    ],
+    "last_100_recorded_edge_K_range": [
+      1.598768669271337,
+      1.5999999999919479
+    ],
+    "last_recorded_edge_K_range": [
+      1.598768669277019,
+      1.5999999999919479
+    ],
+    "integrated_endpoint_edge_K_range": [
+      1.5987686692770633,
+      1.5999999999919878
+    ],
+    "integrated_endpoint_mean_K": 1.599693272889384,
+    "integrated_endpoint_R": 0.9997699282066453,
+    "last_record_time_actual": 49.99,
+    "last_record_time_returned": 49.99,
+    "dt": 0.01,
+    "endpoint_time": 50.0
+  },
+  "user_undamped": {
+    "printed_final_100_mean_K_range": [
+      15.679632757225846,
+      15.976631204945736
+    ],
+    "last_recorded_R": 0.9999976922584806,
+    "last_recorded_mean_K": 15.976631204945736,
+    "all_recorded_edge_K_range": [
+      0.9788399427433084,
+      15.996936178994059
+    ],
+    "last_100_recorded_edge_K_range": [
+      15.624456652578509,
+      15.996936178994059
+    ],
+    "last_recorded_edge_K_range": [
+      15.921455668474989,
+      15.996936178994059
+    ],
+    "integrated_endpoint_edge_K_range": [
+      15.924455658721897,
+      15.999936178180794
+    ],
+    "integrated_endpoint_mean_K": 15.979631189560815,
+    "integrated_endpoint_R": 0.9999976931257187,
+    "last_record_time_actual": 49.99,
+    "last_record_time_returned": 49.99,
+    "dt": 0.01,
+    "endpoint_time": 50.0
+  },
+  "damped_step_refinement": {
+    "0.005": {
+      "printed_final_100_mean_K_range": [
+        1.5996932728867361,
+        1.5996932728891087
+      ],
+      "last_recorded_R": 0.9997699282066452,
+      "last_recorded_mean_K": 1.5996932728891087,
+      "all_recorded_edge_K_range": [
+        0.9803177795047514,
+        1.5999999999917176
+      ],
+      "last_100_recorded_edge_K_range": [
+        1.5987686692742231,
+        1.5999999999917176
+      ],
+      "last_recorded_edge_K_range": [
+        1.5987686692767789,
+        1.5999999999917176
+      ],
+      "integrated_endpoint_edge_K_range": [
+        1.5987686692768015,
+        1.599999999991738
+      ],
+      "integrated_endpoint_mean_K": 1.5996932728891298,
+      "integrated_endpoint_R": 0.9997699282066452,
+      "last_record_time_actual": 49.995000000000005,
+      "last_record_time_returned": 49.995000000000005,
+      "dt": 0.005,
+      "endpoint_time": 50.0
+    },
+    "0.0025": {
+      "printed_final_100_mean_K_range": [
+        1.5996932728878617,
+        1.5996932728889897
+      ],
+      "last_recorded_R": 0.9997699282066451,
+      "last_recorded_mean_K": 1.5996932728889897,
+      "all_recorded_edge_K_range": [
+        0.9807235345552102,
+        1.5999999999915995
+      ],
+      "last_100_recorded_edge_K_range": [
+        1.59876866927544,
+        1.5999999999915995
+      ],
+      "last_recorded_edge_K_range": [
+        1.5987686692766543,
+        1.5999999999915995
+      ],
+      "integrated_endpoint_edge_K_range": [
+        1.5987686692766658,
+        1.59999999999161
+      ],
+      "integrated_endpoint_mean_K": 1.599693272889,
+      "integrated_endpoint_R": 0.9997699282066451,
+      "last_record_time_actual": 49.9975,
+      "last_record_time_returned": 49.9975,
+      "dt": 0.0025,
+      "endpoint_time": 50.0
+    }
+  },
+  "damped_ode_reference": {
+    "gamma": 0.5,
+    "endpoint_R": 0.9997699282066451,
+    "endpoint_mean_K": 1.5996932728888686,
+    "endpoint_edge_K_range": [
+      1.5987686692765302,
+      1.5999999999914807
+    ],
+    "mean_K_at_49_99": 1.5996932728888253,
+    "sampled_edge_K_range_0_to_50": [
+      0.9811221974079652,
+      1.5999999999914807
+    ],
+    "sampling_interval_for_minimum": 0.001,
+    "rtol": 1e-10,
+    "atol": 1e-12,
+    "max_step": 0.02,
+    "solver_success": true
+  },
+  "undamped_step_refinement": {
+    "0.005": {
+      "printed_final_100_mean_K_range": [
+        15.830073862381296,
+        15.978573093811137
+      ],
+      "last_recorded_R": 0.9999976928797178,
+      "last_recorded_mean_K": 15.978573093811137,
+      "all_recorded_edge_K_range": [
+        0.9796441454002061,
+        15.998436298857497
+      ],
+      "last_100_recorded_edge_K_range": [
+        15.77577164678354,
+        15.998436298857497
+      ],
+      "last_recorded_edge_K_range": [
+        15.924271159597257,
+        15.998436298857497
+      ],
+      "integrated_endpoint_edge_K_range": [
+        15.92577115472255,
+        15.999936298450955
+      ],
+      "integrated_endpoint_mean_K": 15.980073086120749,
+      "integrated_endpoint_R": 0.9999976933132229,
+      "last_record_time_actual": 49.995000000000005,
+      "last_record_time_returned": 49.995000000000005,
+      "dt": 0.005,
+      "endpoint_time": 50.0
+    },
+    "0.0025": {
+      "printed_final_100_mean_K_range": [
+        15.905291480106005,
+        15.97954109768615
+      ],
+      "last_recorded_R": 0.9999976931890852,
+      "last_recorded_mean_K": 15.97954109768615,
+      "all_recorded_edge_K_range": [
+        0.9800486894941601,
+        15.999186357560472
+      ],
+      "last_100_recorded_edge_K_range": [
+        15.851423604303063,
+        15.999186357560472
+      ],
+      "last_recorded_edge_K_range": [
+        15.925673361908528,
+        15.999186357560472
+      ],
+      "integrated_endpoint_edge_K_range": [
+        15.926423359471633,
+        15.999936357357223
+      ],
+      "integrated_endpoint_mean_K": 15.980291093841469,
+      "integrated_endpoint_R": 0.9999976934058096,
+      "last_record_time_actual": 49.9975,
+      "last_record_time_returned": 49.9975,
+      "dt": 0.0025,
+      "endpoint_time": 50.0
+    }
+  },
+  "undamped_ode_reference": {
+    "gamma": 0,
+    "endpoint_R": 0.9999976934974014,
+    "endpoint_mean_K": 15.980507130109125,
+    "endpoint_edge_K_range": [
+      15.927071856880142,
+      15.999936415469875
+    ],
+    "mean_K_at_49_99": 15.977507145488683,
+    "sampled_edge_K_range_0_to_50": [
+      0.9804558315852375,
+      15.999936415469875
+    ],
+    "sampling_interval_for_minimum": 0.001,
+    "rtol": 1e-10,
+    "atol": 1e-12,
+    "max_step": 0.02,
+    "solver_success": true
+  },
+  "exact_synchronized_counterexample": {
+    "undamped_K_at_50": 16.0,
+    "damped_K_at_50": 1.5999999999916672,
+    "R_all_times": 1.0,
+    "theta_velocity_for_zero_frequencies": 0.0
+  },
+  "unbounded_nonnegative_safety_input_counterexample": {
+    "S": "t",
+    "antiphase_K_at_50": -95.60000000004722,
+    "asymptotic": "K decreases without bound approximately -(beta/gamma)*t"
+  },
+  "common_injection_counterexample": {
+    "frequency_injection": 0.1,
+    "R_all_times": 1.0,
+    "phase_motion_nonzero": true,
+    "target_R": 0.6180339887498949,
+    "target_error_all_times": 0.3819660112501051
+  }
+}
