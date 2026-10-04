@@ -10,7 +10,7 @@
 | [Resona OS prototype](../lib) | Agent, scoring, redaction, and audit modules with dashboard pages | External policy authority, real isolation and enforcement, durable audit custody, HIPAA compliance, clinical validation |
 | [QOTE control-law console](https://github.com/michaelkayser1/qote-control-law) | A browser state-machine simulator with receipts and self-tests | Calibrated thresholds, authenticated independent signers, real tool enforcement, and independent reality verification |
 | [QOTE archive](https://github.com/michaelkayser1/QOTE-Deploy-Pro.) | Historical narrative, proposed math, visualization | Validation of π/2π safety bands or biological/AI equivalence |
-| [Adaptive oscillator research](ADAPTIVE_OSCILLATOR_RESEARCH.md), added 2026-10-04 UTC | Offline unthrottled model, conditional edgewise gain bounds, eight regression tests, Euler refinement and ODE comparisons | Coherence-setpoint control, safety invariance, task progress, novelty, and any authorization or clinical interpretation |
+| [Adaptive oscillator research](ADAPTIVE_OSCILLATOR_RESEARCH.md), added 2026-10-04 UTC | Offline unthrottled model, conditional edgewise gain bounds, eight research tests with multi-seed/initial-gain bound cases, Euler refinement and ODE comparisons | Coherence-setpoint control, safety invariance, task progress, novelty, and any authorization or clinical interpretation |
 
 ## Source-level cautions
 

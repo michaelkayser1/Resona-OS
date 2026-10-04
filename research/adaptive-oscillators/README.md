@@ -30,4 +30,8 @@ parameters and seed remain those supplied in the original harness.
 All numerical times are elapsed seconds. Documentation dates use UTC.
 Importing `verify.py` does not execute the verification suite or change the
 global random generator. Eight regression tests check mathematical boundaries
-and measurement errors; they are not external-action acceptance tests.
+and measurement errors, with 60 scalar-initialization bound subcases and one
+mixed-edge initialization. They compare with analytical bounds rather than
+seed-specific minima or ten-digit trajectory targets. The separate 19 sandbox
+and three audit tests do not exercise this module; they are regression evidence
+only. None of these checks is an external-action acceptance test.

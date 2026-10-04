@@ -97,11 +97,21 @@ the integrated endpoint. A range of the last 100 mean values is neither an
 edgewise range nor a sweep of the theorem interval.
 
 Eight research regression tests cover exact synchronized upper and antiphase
-lower Euler envelopes, undamped synchronized growth, edgewise bounds, correct
-time labeling, reproducible local randomness, and invalid inputs. Existing
-main-branch checks also passed: 19 sandbox engineering tests and three audit
-tests. These are local checks, not P1/N1–N11 acceptance results or independent
-validation. No conclusion about the separate draft challenge PR is made here.
+lower Euler envelopes, undamped synchronized growth, correct time labeling,
+reproducible local randomness, and invalid inputs. The edge-bound test has 60
+subcases varying seeds, damping, time steps and initial gains, including gains
+outside the nominal interval, plus a mixed-edge initialization with separate
+edgewise bounds. Numerical tests exercise these conditions; the analytic
+comparison argument supplies the theorem. Tests do not assert the run minimum
+or undamped means to ten digits. Tight arithmetic tolerances apply only to
+exact discrete identities and roundoff at known invariant boundaries.
+
+The previously run 19 sandbox engineering tests and three audit tests do not
+import or exercise this oscillator module. They are unrelated regression
+evidence, not 22 additional oscillator checks. Only the eight research tests
+exercise this formalization. None of these checks is independent validation
+or a P1/N1–N11 acceptance result. No conclusion about the separate draft
+challenge PR is made here.
 
 ## Boundaries and counterexamples
 

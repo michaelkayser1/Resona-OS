@@ -9,7 +9,7 @@ import numpy as np
 from scipy.integrate import solve_ivp
 
 def user_harness(N=10,T=50.,dt=.01,gamma=.5,alpha=.3,K0=1.,seed=42,
-                 initial_phases=None, natural_frequencies=None):
+                 initial_phases=None, natural_frequencies=None, initial_gains=None):
     """Offline Euler experiment; no policy decisions or external effects."""
     if not isinstance(N,int) or isinstance(N,bool) or N<2:
         raise ValueError("N must be an integer >= 2")
@@ -37,10 +37,26 @@ def user_harness(N=10,T=50.,dt=.01,gamma=.5,alpha=.3,K0=1.,seed=42,
         raise ValueError("phase and frequency vectors must be finite and length N")
     A=np.ones((N,N))-np.eye(N);mask=A==1
     K=np.full((N,N),K0)
+    if initial_gains is not None:
+        candidate=np.asarray(initial_gains,dtype=float)
+        K=np.full((N,N),float(candidate)) if candidate.ndim==0 else candidate.copy()
+    if K.shape!=(N,N) or not np.all(np.isfinite(K)) or not np.array_equal(K,K.T):
+        raise ValueError("initial gains must be a finite scalar or symmetric N-by-N matrix")
+    bound_low=np.minimum(K,K0-alpha/gamma) if gamma>0 else None
+    bound_high=np.maximum(K,K0+alpha/gamma) if gamma>0 else None
+    max_bound_excess=None
+    def record_bound_excess(gains):
+        if gamma==0:
+            return None
+        return float(max(np.max((bound_low-gains)[mask]),
+                         np.max((gains-bound_high)[mask])))
     Rh=np.zeros(steps);Kh=np.zeros(steps)
     edge_lo=np.inf;edge_hi=-np.inf
     tail_edge_lo=np.inf;tail_edge_hi=-np.inf
     for s in range(steps):
+        if gamma>0:
+            excess=record_bound_excess(K)
+            max_bound_excess=excess if max_bound_excess is None else max(max_bound_excess,excess)
         Rh[s]=abs(np.mean(np.exp(1j*theta)))
         Kh[s]=K[mask].mean()
         edge_lo=min(edge_lo,float(K[mask].min()))
@@ -53,6 +69,8 @@ def user_harness(N=10,T=50.,dt=.01,gamma=.5,alpha=.3,K0=1.,seed=42,
         dK=(-gamma*(K-K0)+alpha*np.cos(diff))*A
         theta=(theta+dtheta*dt)%(2*np.pi)
         K=K+dt*dK
+    if gamma>0:
+        max_bound_excess=max(max_bound_excess,record_bound_excess(K))
     return {"printed_final_100_mean_K_range":[float(Kh[-100:].min()),float(Kh[-100:].max())],
     "last_recorded_R":float(Rh[-1]),"last_recorded_mean_K":float(Kh[-1]),
     "all_recorded_edge_K_range":[edge_lo,edge_hi],
@@ -61,6 +79,7 @@ def user_harness(N=10,T=50.,dt=.01,gamma=.5,alpha=.3,K0=1.,seed=42,
     "integrated_endpoint_edge_K_range":[float(K[mask].min()),float(K[mask].max())],
     "integrated_endpoint_mean_K":float(K[mask].mean()),
     "integrated_endpoint_R":float(abs(np.mean(np.exp(1j*theta)))),
+    "max_edge_bound_excess":max_bound_excess,
     "last_record_time_actual":float((steps-1)*dt),
     "last_record_time_returned":float(t[-1]),
     "dt":float(dt),"endpoint_time":float(steps*dt)}
