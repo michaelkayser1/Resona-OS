@@ -1,6 +1,6 @@
 # Adaptive oscillator research specification
 
-**As of 2026-10-04 UTC.** Experimental mathematics and synthetic numerical
+**As of 2026-10-05 UTC.** Experimental mathematics and synthetic numerical
 checks; AI-assisted analysis, not independent peer review.
 
 This is an offline research track. It does not change the middleware's invariant
@@ -8,6 +8,10 @@ definitions, authorization decisions, external-action protocol, or acceptance
 criteria. Oscillator metrics have no authority to permit an external effect.
 See [validation status](VALIDATION_STATUS.md) and the existing
 [sandbox boundary](EXTERNAL_ACTION_SANDBOX_SPEC.md).
+
+Reviewed head: 078044cac03ed27c2db930f0aeaa344d96df4c62 on
+`research/adaptive-gain-verification-20261004` (pull request 18). That pull
+request is an open draft. There is no merge or squash commit.
 
 ## Frozen implemented model
 
@@ -61,8 +65,10 @@ law. Shared symmetric coefficients preserve edge symmetry.
 
 For gamma>0, Euler preserves the gain interval when gamma*dt<=1 and initial gains
 are inside it, because each update is a convex combination of the old gain and
-K0+(alpha/gamma)cos(Delta). The harness enforces this condition.
+K0+(alpha/gamma)cos(Delta). The harness enforces gamma*dt<=1.
 This does not guarantee accuracy or stability of the phase integration.
+For 1<gamma*dt<2, contraction toward the instantaneous target does not
+guarantee interval preservation; that step-size range is rejected, not tested.
 
 The continuous-time upper envelope is strictly below 1.6 for finite time with
 K(0)=K0. Euler's envelope uses (1-gamma*dt)^n instead of exp(-gamma*t).
@@ -73,6 +79,13 @@ Do not round an approached bound into an attained value.
 See the [reference implementation](../research/adaptive-oscillators/verify.py),
 [recorded results](../research/adaptive-oscillators/verification-results.json),
 and [run instructions](../research/adaptive-oscillators/README.md).
+
+Exact numeric agreement is with the committed record at the reviewed head.
+The recorded pins are Python 3.12, numpy==2.3.5, and scipy==1.17.0. The
+committed results file does not record OS, architecture, or BLAS, so none is
+stated. Cross-environment reproduction needs an explicitly stated tolerance;
+no such tolerance is part of this record. Solver comparison tolerances below
+are integration controls, not a cross-platform numeric agreement tolerance.
 
 | Measurement | Result / qualification |
 | --- | --- |
