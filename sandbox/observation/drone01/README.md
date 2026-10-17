@@ -1,4 +1,4 @@
-# DRONE-01 local synthetic fixture (v0.1)
+# DRONE-01 local synthetic fixture (v1)
 
 **Status:** Local observation-only tests. No runtime integration, no destination enforcement, no production authority.
 
@@ -12,8 +12,13 @@ DR-7 (100-request concurrency and crash/restore) and DR-8 (alternate-write-route
 - Schema covers both ordinary (`pattern_label=none`) and candidate (`DRONE-01-candidate`) observations via explicit enum.
 - `policy_states_invoked` defaults to `[]`. OBSERVE and SPEAK are architecture stages, never emitted as policy states.
 - Structured `predecessor_receipt_hash` (null or SHA-256) is included in the canonical bytes before the receipt hash is computed.
-- Contract version bumped to `resona.drone01.observation.v0.1`.
+- Contract version is `resona.drone01.observation.v1` with an explicit allowlist; predecessor verification is version-aware.
+- Receipt prefix is version-aware.
 - `repetition_count >= 3` is an explicit synthetic heuristic for this local fixture only.
+- Timestamp format requires timezone (Z or ±offset).
+- DR-3 uses bounded fixtures for positive assertion, denial, mention, and attribution.
+- DR-6 uses an in-memory predecessor store with resolution, unresolved rejection, hash recomputation, and tampering detection.
+- DR-4 coverage is limited to schema rejection of extra fields; free-text privacy scanning is not implemented.
 
 ## Run
 
@@ -22,8 +27,6 @@ cd sandbox/observation/drone01
 pip install jsonschema   # required for schema validation tests
 python3 -m unittest -v test_fixture
 ```
-
-Timestamp format checking is enabled via an explicit Draft 2020-12 date-time checker registered in the test module (jsonschema's default FormatChecker does not include date-time without extra packages).
 
 ## Limits
 

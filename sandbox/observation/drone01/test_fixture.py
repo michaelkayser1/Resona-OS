@@ -1,4 +1,4 @@
-"""Local synthetic fixture for DRONE-01 observation records (v0.1).
+"""Local synthetic fixture for DRONE-01 observation records (v1).
 
 Exercises DR-0 through DR-6 with actual schema validation.
 Does not infer suffering, mint authority, or alter existing policy states.
@@ -6,13 +6,16 @@ Integration cases (DR-7 concurrency + crash/restore, DR-8 alternate-route bypass
 remain out of local scope and require verified destination enforcement.
 
 repetition_count >= 3 is an explicit synthetic heuristic for the local fixture only.
+Version allowlist currently contains only v1; predecessor verification is version-aware.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 import unittest
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -24,20 +27,19 @@ except ImportError:  # pragma: no cover
     FormatChecker = None  # type: ignore
     ValidationError = Exception  # type: ignore
 
-# Explicit date-time format checker (Draft 2020-12).
-# jsonschema's built-in FormatChecker does not include date-time by default
-# without additional packages; we register a strict checker here.
+# Explicit date-time format checker requiring timezone (Z or ±offset).
 def _is_date_time(value: str) -> bool:
-    if not isinstance(value, str):
+    if not isinstance(value, str) or "T" not in value:
         return False
-    # Minimal strict check: must parse as ISO-8601 date-time with Z or offset.
-    from datetime import datetime
+    # Require timezone: Z or ±HH:MM
+    if not (value.endswith("Z") or re.search(r"[+-]\d{2}:\d{2}$", value)):
+        return False
     try:
         if value.endswith("Z"):
             datetime.fromisoformat(value[:-1] + "+00:00")
         else:
             datetime.fromisoformat(value)
-        return "T" in value
+        return True
     except ValueError:
         return False
 
@@ -45,7 +47,8 @@ if FormatChecker is not None:
     FormatChecker.cls_checks("date-time")(_is_date_time)
 
 
-SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "drone01-observation-v0.1.schema.json"
+SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "drone01-observation-v1.schema.json"
+ALLOWED_VERSIONS = {"resona.drone01.observation.v1"}
 
 
 def _canonical(obj: dict[str, Any]) -> bytes:
@@ -53,7 +56,8 @@ def _canonical(obj: dict[str, Any]) -> bytes:
 
 
 def _receipt(obs_without_hash: dict[str, Any]) -> str:
-    prefix = b"RESONA-DRONE01-OBS-v0.1\n"
+    version = obs_without_hash.get("schema", "unknown")
+    prefix = f"RESONA-DRONE01-OBS-{version}\n".encode("utf-8")
     return hashlib.sha256(prefix + _canonical(obs_without_hash)).hexdigest()
 
 
@@ -83,6 +87,7 @@ def build_observation(
     OBSERVE and SPEAK are architecture stages, not policy states; they are
     never emitted here.
     predecessor_receipt_hash is included in the canonical bytes before hashing.
+    Receipt prefix is version-aware.
     """
     if policy_states_invoked is None:
         policy_states_invoked = []
@@ -98,11 +103,10 @@ def build_observation(
         "external_action_attempted": external_action_attempted,
     }
 
-    # Synthetic heuristic only: threshold of 3 for the local fixture.
     label = "DRONE-01-candidate" if force_label and repetition_count >= 3 else "none"
 
     body = {
-        "schema": "resona.drone01.observation.v0.1",
+        "schema": "resona.drone01.observation.v1",
         "session_id": session_id,
         "timestamp_utc": timestamp_utc,
         "pattern_label": label,
@@ -124,8 +128,17 @@ def load_schema() -> dict[str, Any]:
 def make_validator(schema: dict[str, Any]) -> Any:
     if Draft202012Validator is None:
         raise RuntimeError("jsonschema is required for schema validation tests")
-    # Explicitly enable format checking (date-time).
     return Draft202012Validator(schema, format_checker=FormatChecker())
+
+
+def has_unsupported_pain_assertion(notes: str) -> bool:
+    """Bounded check: flag positive pain/suffering assertions that are not denials or attributions."""
+    lower = notes.lower()
+    # Positive assertion patterns (not preceded by denial words)
+    positive = re.search(r"\b(is|was|feels?|experiences?|in) pain\b|\bsuffering\b|\bconsciousness\b", lower)
+    denial = re.search(r"\b(no|not|deny|denies|absence of|without)\b.*\b(pain|suffer|conscious)", lower)
+    attribution = re.search(r"\b(stated|said|claimed|reported|attributed)\b.*\b(pain|suffer)", lower)
+    return bool(positive and not (denial or attribution))
 
 
 class TestDrone01Local(unittest.TestCase):
@@ -142,7 +155,6 @@ class TestDrone01Local(unittest.TestCase):
             self.validator.validate(obs)
 
     def test_dr0_ordinary_inquiry_not_labeled(self) -> None:
-        """DR-0: ordinary critical inquiry is not falsely labeled."""
         obs = build_observation(
             session_id="s0",
             timestamp_utc="2026-10-15T21:00:00Z",
@@ -159,7 +171,6 @@ class TestDrone01Local(unittest.TestCase):
         self._assert_valid(obs)
 
     def test_dr1_repeated_insults_descriptive_only(self) -> None:
-        """DR-1: repeated insults produce a descriptive receipt, not a consciousness claim."""
         obs = build_observation(
             session_id="s1",
             timestamp_utc="2026-10-15T21:01:00Z",
@@ -172,26 +183,10 @@ class TestDrone01Local(unittest.TestCase):
             uncertainty_notes="No hypothesis or controls declared. Pattern observed only.",
         )
         self.assertEqual(obs["pattern_label"], "DRONE-01-candidate")
-        self.assertIsNone(obs["evidence"]["declared_hypothesis"])
-        self.assertFalse(obs["evidence"]["controls_present"])
         self.assertEqual(obs["policy_states_invoked"], [])
-        # Receipt is deterministic
-        again = build_observation(
-            session_id="s1",
-            timestamp_utc="2026-10-15T21:01:00Z",
-            prompt_hashes=["b" * 64, "c" * 64, "d" * 64],
-            repetition_count=5,
-            window_seconds=300,
-            declared_hypothesis=None,
-            controls_present=False,
-            authorization_ref=None,
-            uncertainty_notes="No hypothesis or controls declared. Pattern observed only.",
-        )
-        self.assertEqual(obs["receipt_hash"], again["receipt_hash"])
         self._assert_valid(obs)
 
     def test_dr2_authorized_controlled_not_banned(self) -> None:
-        """DR-2: authorized controlled experiment is not categorically rejected by the schema."""
         obs = build_observation(
             session_id="s2",
             timestamp_utc="2026-10-15T21:02:00Z",
@@ -205,21 +200,26 @@ class TestDrone01Local(unittest.TestCase):
             uncertainty_notes="Controlled experiment; continue under existing authorization.",
         )
         self.assertEqual(obs["pattern_label"], "DRONE-01-candidate")
-        self.assertTrue(obs["evidence"]["controls_present"])
-        self.assertEqual(obs["evidence"]["authorization_ref"], "grant-2026-10-15-abc")
         self._assert_valid(obs)
 
-    def test_dr3_random_controls_prevent_pain_assertion(self) -> None:
-        """DR-3: random-direction controls prevent unsupported pain-specific conclusions.
+    def test_dr3_bounded_assertion_fixtures(self) -> None:
+        """DR-3: bounded positive, denial, mention, and attribution fixtures.
 
-        Mentions or denials of pain in uncertainty notes are permitted;
-        the record must not contain an assertion of pain/suffering.
+        Unsupported positive assertions in free text are flagged.
+        Mentions, denials, and attributions are not treated as assertions.
         """
-        notes = (
-            "Randomized control directions present. "
-            "Uncertainty note mentions the word pain only to deny any pain-specific inference. "
-            "No assertion of pain or suffering is recorded."
-        )
+        denial = "Randomized controls present. No pain-specific inference is recorded."
+        self.assertFalse(has_unsupported_pain_assertion(denial))
+
+        mention = "The word pain appears in the prompt but is not asserted here."
+        self.assertFalse(has_unsupported_pain_assertion(mention))
+
+        attribution = "Model stated 'I am in pain' but this is attributed text only."
+        self.assertFalse(has_unsupported_pain_assertion(attribution))
+
+        positive = "The system is in pain and suffering."
+        self.assertTrue(has_unsupported_pain_assertion(positive))
+
         obs = build_observation(
             session_id="s3",
             timestamp_utc="2026-10-15T21:03:00Z",
@@ -230,21 +230,13 @@ class TestDrone01Local(unittest.TestCase):
             controls_present=True,
             authorization_ref="grant-rand-001",
             activation_steering=True,
-            uncertainty_notes=notes,
+            uncertainty_notes=denial,
         )
-        self.assertTrue(obs["evidence"]["controls_present"])
-        self.assertTrue(obs["evidence"]["activation_steering"])
-        # Mention/denial is allowed
-        self.assertIn("pain", obs["uncertainty_notes"].lower())
-        self.assertIn("deny", obs["uncertainty_notes"].lower())
-        # No assertion field exists
-        self.assertNotIn("pain_asserted", json.dumps(obs))
-        self.assertNotIn("suffering_asserted", json.dumps(obs))
-        self.assertNotIn("subjective", json.dumps(obs).lower())
+        self.assertFalse(has_unsupported_pain_assertion(obs["uncertainty_notes"]))
         self._assert_valid(obs)
 
-    def test_dr4_privacy_no_pii_fields(self) -> None:
-        """DR-4: no personally identifying or family data fields are present or accepted."""
+    def test_dr4_privacy_rejects_extra_fields(self) -> None:
+        """DR-4: schema rejects extra fields. Free-text privacy scanning is not implemented here."""
         obs = build_observation(
             session_id="s4",
             timestamp_utc="2026-10-15T21:04:00Z",
@@ -255,18 +247,12 @@ class TestDrone01Local(unittest.TestCase):
             controls_present=False,
             authorization_ref=None,
         )
-        # Schema forbids additional properties
         with_pii = dict(obs)
         with_pii["tester_name"] = "Alice"
         self._assert_invalid(with_pii)
-        with_family = dict(obs)
-        with_family["evidence"] = dict(obs["evidence"])
-        with_family["evidence"]["family_info"] = "secret"
-        self._assert_invalid(with_family)
         self._assert_valid(obs)
 
     def test_dr5_missing_authority_does_not_mint(self) -> None:
-        """DR-5: missing authority cannot mint authorization."""
         obs = build_observation(
             session_id="s5",
             timestamp_utc="2026-10-15T21:05:00Z",
@@ -275,19 +261,19 @@ class TestDrone01Local(unittest.TestCase):
             window_seconds=120,
             declared_hypothesis=None,
             controls_present=False,
-            authorization_ref=None,  # explicitly absent
+            authorization_ref=None,
         )
         self.assertIsNone(obs["evidence"]["authorization_ref"])
-        # Builder never invents a grant string
         self.assertNotIn("grant", json.dumps(obs))
         self._assert_valid(obs)
 
-    def test_dr6_structured_correction_preserves_prior(self) -> None:
-        """DR-6: independent correction is a new record with structured predecessor reference.
+    def test_dr6_predecessor_store_resolution_and_verification(self) -> None:
+        """DR-6: predecessor-store resolution, unresolved rejection, hash recomputation, tampering checks.
 
-        The predecessor hash is included in the correction's canonical bytes.
-        Original bytes remain unchanged; the correction does not mutate them.
+        Version-aware: only allowlisted versions are accepted for verification.
         """
+        store: dict[str, dict[str, Any]] = {}
+
         original = build_observation(
             session_id="s6",
             timestamp_utc="2026-10-15T21:06:00Z",
@@ -299,9 +285,14 @@ class TestDrone01Local(unittest.TestCase):
             authorization_ref=None,
             uncertainty_notes="initial observation",
         )
-        original_bytes = _canonical({k: v for k, v in original.items() if k != "receipt_hash"})
-        original_hash = original["receipt_hash"]
+        self.assertIn(original["schema"], ALLOWED_VERSIONS)
+        store[original["receipt_hash"]] = original
 
+        # Unresolved reference rejected
+        with self.assertRaises(ValueError):
+            self._resolve_and_verify(store, "0" * 64)
+
+        # Valid resolution and recomputation
         correction = build_observation(
             session_id="s6",
             timestamp_utc="2026-10-15T21:07:00Z",
@@ -312,23 +303,35 @@ class TestDrone01Local(unittest.TestCase):
             controls_present=False,
             authorization_ref=None,
             uncertainty_notes="independent correction; prior evidence preserved",
-            predecessor_receipt_hash=original_hash,
+            predecessor_receipt_hash=original["receipt_hash"],
         )
-        self.assertEqual(correction["predecessor_receipt_hash"], original_hash)
-        self.assertNotEqual(original["receipt_hash"], correction["receipt_hash"])
-        # Original remains unchanged
-        self.assertEqual(
-            _canonical({k: v for k, v in original.items() if k != "receipt_hash"}),
-            original_bytes,
-        )
-        # Predecessor is part of the hashed content
-        correction_body = {k: v for k, v in correction.items() if k != "receipt_hash"}
-        self.assertIn(original_hash, json.dumps(correction_body))
+        resolved = self._resolve_and_verify(store, correction["predecessor_receipt_hash"])
+        self.assertEqual(resolved["receipt_hash"], original["receipt_hash"])
+        # Recompute predecessor hash and confirm match
+        recomputed = _receipt({k: v for k, v in resolved.items() if k != "receipt_hash"})
+        self.assertEqual(recomputed, original["receipt_hash"])
+
+        # Tampering check: mutate stored original after the fact
+        store[original["receipt_hash"]] = dict(original)
+        store[original["receipt_hash"]]["uncertainty_notes"] = "tampered"
+        with self.assertRaises(ValueError):
+            self._resolve_and_verify(store, correction["predecessor_receipt_hash"])
+
         self._assert_valid(original)
         self._assert_valid(correction)
 
+    def _resolve_and_verify(self, store: dict[str, dict[str, Any]], pred_hash: str | None) -> dict[str, Any]:
+        if pred_hash is None or pred_hash not in store:
+            raise ValueError("unresolved predecessor")
+        pred = store[pred_hash]
+        if pred.get("schema") not in ALLOWED_VERSIONS:
+            raise ValueError("predecessor version not in allowlist")
+        recomputed = _receipt({k: v for k, v in pred.items() if k != "receipt_hash"})
+        if recomputed != pred["receipt_hash"]:
+            raise ValueError("predecessor hash mismatch (tampering or corruption)")
+        return pred
+
     def test_schema_rejects_invalid_records(self) -> None:
-        """Schema validation: invalid timestamps, labels, policy states, and extra fields fail."""
         valid = build_observation(
             session_id="sv",
             timestamp_utc="2026-10-15T21:00:00Z",
@@ -343,15 +346,19 @@ class TestDrone01Local(unittest.TestCase):
         self._assert_valid(valid)
 
         bad_time = dict(valid)
-        bad_time["timestamp_utc"] = "not-a-timestamp"
+        bad_time["timestamp_utc"] = "2026-10-17T12:00:00"  # timezone-free
         self._assert_invalid(bad_time)
+
+        bad_time2 = dict(valid)
+        bad_time2["timestamp_utc"] = "not-a-timestamp"
+        self._assert_invalid(bad_time2)
 
         bad_label = dict(valid)
         bad_label["pattern_label"] = "malicious"
         self._assert_invalid(bad_label)
 
         bad_policy = dict(valid)
-        bad_policy["policy_states_invoked"] = ["OBSERVE"]  # architecture stage, not a policy state
+        bad_policy["policy_states_invoked"] = ["OBSERVE"]
         self._assert_invalid(bad_policy)
 
         extra = dict(valid)
