@@ -279,7 +279,8 @@ class TestDrone01Local(unittest.TestCase):
         """DR-6: predecessor-store resolution, unresolved rejection, hash recomputation, tampering checks.
 
         Version-aware: only allowlisted versions are accepted for verification.
-        Includes three-way equality and original-byte preservation.
+        Includes three-way equality and an in-memory canonical-snapshot check.
+        Does not establish raw-byte ingestion, round-trip storage, durability, or custody.
         """
         store: dict[str, dict[str, Any]] = {}
 
@@ -322,7 +323,7 @@ class TestDrone01Local(unittest.TestCase):
         self.assertEqual(recomputed, original["receipt_hash"])
         self.assertEqual(correction["predecessor_receipt_hash"], resolved["receipt_hash"])
 
-        # Byte preservation: original canonical bytes unchanged
+        # In-memory canonical snapshot unchanged (not raw-byte or storage preservation)
         preserved_bytes = _canonical({k: v for k, v in resolved.items() if k != "receipt_hash"})
         self.assertEqual(preserved_bytes, original_bytes)
 

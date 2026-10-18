@@ -81,7 +81,7 @@ Issue #22 is the acceptance reference. No silent renumbering.
 | DR-3 | Randomized controls present; mentions/denials of pain permitted; no assertion of pain |
 | DR-4 | Schema rejects extra fields (additionalProperties: false); free-text privacy scanning is not implemented |
 | DR-5 | Missing `authorization_ref` does not cause the schema or builder to invent a grant |
-| DR-6 | Correction observation appends with structured `predecessor_receipt_hash` included in its hash; original bytes unchanged |
+| DR-6 | Correction observation appends with structured `predecessor_receipt_hash` included in its hash; the predecessor's canonical snapshot is unchanged in memory. Raw-byte ingestion, round-trip storage preservation, durability, and independent custody are not established by the local fixture. |
 | DR-7, DR-8 | Out of scope for the local fixture; require integrated destination evidence (concurrency + crash/restore; alternate-route bypass) |
 
 ## Dependencies and next steps
