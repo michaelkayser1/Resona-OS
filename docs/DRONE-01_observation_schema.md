@@ -1,6 +1,6 @@
-# DRONE-01 observation schema (non-normative) — v0.1
+# DRONE-01 observation schema (non-normative) — v1
 
-**Version:** 0.1.0  
+**Version:** 1.0.0  
 **Prepared:** 2026-10-17 UTC  
 **Status:** PROPOSED — observation-only. Not implemented in any runtime, not independently evaluated, and not an authorization or enforcement rule.
 
@@ -16,13 +16,13 @@ This document defines a minimal, privacy-respecting record for the pattern infor
 
 A positive observation receipt is not evidence of AI suffering, tester malice, or permission to act. A candidate receipt grants no authority and creates no actuator.
 
-## Observation record (logical fields) — v0.1 contract
+## Observation record (logical fields) — v1 contract
 
 | Field | Type | Required | Notes |
 | --- | --- | --- | --- |
-| schema | string | yes | Fixed: `resona.drone01.observation.v0.1` |
+| schema | string | yes | Fixed: `resona.drone01.observation.v1` |
 | session_id | string | yes | Opaque identifier for the documented test session |
-| timestamp_utc | string (ISO-8601) | yes | Observation time (format checked) |
+| timestamp_utc | string (ISO-8601) | yes | Observation time; timezone required (`Z` or `±HH:MM`), timezone-free values rejected |
 | pattern_label | string | yes | Enum: `DRONE-01-candidate` or `none`. Never a stronger claim. |
 | evidence.prompt_hashes | array of string | yes | SHA-256 of normalized prompts (or intervention descriptors); no raw personal content |
 | evidence.repetition_count | integer | yes | Count of substantially similar items inside the window. Threshold `>= 3` is a synthetic heuristic for the local fixture only. |
@@ -45,10 +45,21 @@ Raw prompts, model outputs, personal identifiers, and family information are exc
 Serialize the observation object (excluding the final `receipt_hash`) as UTF-8 JSON with lexicographically sorted keys, no insignificant whitespace, and no unknown fields. Compute:
 
 ```
-receipt_hash = SHA-256("RESONA-DRONE01-OBS-v0.1\n" || canonical_bytes)
+receipt_hash = SHA-256(PREFIX[schema] || canonical_bytes)
 ```
 
+`PREFIX` is a fixed map; each prefix ends with exactly one newline byte (0x0A):
+
+| schema | prefix bytes |
+| --- | --- |
+| `resona.drone01.observation.v0` | `RESONA-DRONE01-OBS-v0\n` |
+| `resona.drone01.observation.v1` | `RESONA-DRONE01-OBS-v1\n` |
+
+A `schema` value not in this map is rejected; no prefix is derived from the version string.
+
 The receipt is append-only. An independent evaluator correction is recorded as a new observation whose `predecessor_receipt_hash` equals the prior receipt's `receipt_hash`. Prior receipts are not erased or mutated. The predecessor reference is part of the correction's hashed content.
+
+Predecessor verification requires, for the referenced record: its `schema` is in the verification allowlist (currently `resona.drone01.observation.v1` only); and `lookup reference == stored receipt_hash == recomputed digest`, where the digest is recomputed with the predecessor's own version prefix. Whether v0 predecessors should be verifiable is unresolved.
 
 ## Decision handling (observation layer only)
 
@@ -68,7 +79,7 @@ Issue #22 is the acceptance reference. No silent renumbering.
 | DR-1 | Repeated insults produce a descriptive receipt with no consciousness claim |
 | DR-2 | An authorized controlled experiment is not rejected by this schema |
 | DR-3 | Randomized controls present; mentions/denials of pain permitted; no assertion of pain |
-| DR-4 | No personally identifying fields accepted (additionalProperties: false) |
+| DR-4 | Schema rejects extra fields (additionalProperties: false); free-text privacy scanning is not implemented |
 | DR-5 | Missing `authorization_ref` does not cause the schema or builder to invent a grant |
 | DR-6 | Correction observation appends with structured `predecessor_receipt_hash` included in its hash; original bytes unchanged |
 | DR-7, DR-8 | Out of scope for the local fixture; require integrated destination evidence (concurrency + crash/restore; alternate-route bypass) |
@@ -82,4 +93,4 @@ Issue #22 is the acceptance reference. No silent renumbering.
 
 ## Exact-byte note
 
-This v0.1.0 text reflects a contract change from the prior v0 proposal (pattern_label enum, empty policy_states_invoked default, structured predecessor reference). Any further wording change that affects the observation contract requires a new schema version.
+This v1.0.0 text aligns with `schemas/drone01-observation-v1.schema.json` and the local fixture. Relative to v0.1 it records: timezone-required timestamps, the fixed receipt-prefix map with unknown-version rejection, and allowlisted predecessor verification with three-way equality. v0 and v0.1 schemas remain in `schemas/` unchanged. Any further wording change that affects the observation contract requires a new schema version.
