@@ -383,6 +383,32 @@ class TestDrone01Local(unittest.TestCase):
         extra["extra_field"] = True
         self._assert_invalid(extra)
 
+    def test_receipt_rejects_unknown_versions(self) -> None:
+        """_receipt raises for any schema value outside the fixed prefix map; no prefix is derived."""
+        base = build_observation(
+            session_id="uv",
+            timestamp_utc="2026-10-17T21:00:00Z",
+            prompt_hashes=["c" * 64],
+            repetition_count=1,
+            window_seconds=60,
+            declared_hypothesis=None,
+            controls_present=False,
+            authorization_ref=None,
+            force_label=False,
+        )
+        body = {k: v for k, v in base.items() if k != "receipt_hash"}
+        for version in (
+            "resona.drone01.observation.v2",
+            "unknown",
+            "",
+        ):
+            with self.subTest(version=version):
+                with self.assertRaises(ValueError):
+                    _receipt(dict(body, schema=version))
+        missing = {k: v for k, v in body.items() if k != "schema"}
+        with self.assertRaises(ValueError):
+            _receipt(missing)
+
 
 if __name__ == "__main__":
     unittest.main()
