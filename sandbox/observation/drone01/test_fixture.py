@@ -50,6 +50,12 @@ if FormatChecker is not None:
 SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "drone01-observation-v1.schema.json"
 ALLOWED_VERSIONS = {"resona.drone01.observation.v1"}
 
+# Fixed receipt-prefix map (each ends with one newline byte)
+PREFIX_MAP = {
+    "resona.drone01.observation.v0": b"RESONA-DRONE01-OBS-v0\n",
+    "resona.drone01.observation.v1": b"RESONA-DRONE01-OBS-v1\n",
+}
+
 
 def _canonical(obj: dict[str, Any]) -> bytes:
     return json.dumps(obj, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -57,7 +63,9 @@ def _canonical(obj: dict[str, Any]) -> bytes:
 
 def _receipt(obs_without_hash: dict[str, Any]) -> str:
     version = obs_without_hash.get("schema", "unknown")
-    prefix = f"RESONA-DRONE01-OBS-{version}\n".encode("utf-8")
+    if version not in PREFIX_MAP:
+        raise ValueError(f"unknown schema version: {version}")
+    prefix = PREFIX_MAP[version]
     return hashlib.sha256(prefix + _canonical(obs_without_hash)).hexdigest()
 
 
@@ -87,7 +95,7 @@ def build_observation(
     OBSERVE and SPEAK are architecture stages, not policy states; they are
     never emitted here.
     predecessor_receipt_hash is included in the canonical bytes before hashing.
-    Receipt prefix is version-aware.
+    Receipt prefix is version-aware and rejects unknown versions.
     """
     if policy_states_invoked is None:
         policy_states_invoked = []
@@ -271,6 +279,7 @@ class TestDrone01Local(unittest.TestCase):
         """DR-6: predecessor-store resolution, unresolved rejection, hash recomputation, tampering checks.
 
         Version-aware: only allowlisted versions are accepted for verification.
+        Includes three-way equality and original-byte preservation.
         """
         store: dict[str, dict[str, Any]] = {}
 
@@ -286,6 +295,7 @@ class TestDrone01Local(unittest.TestCase):
             uncertainty_notes="initial observation",
         )
         self.assertIn(original["schema"], ALLOWED_VERSIONS)
+        original_bytes = _canonical({k: v for k, v in original.items() if k != "receipt_hash"})
         store[original["receipt_hash"]] = original
 
         # Unresolved reference rejected
@@ -307,9 +317,14 @@ class TestDrone01Local(unittest.TestCase):
         )
         resolved = self._resolve_and_verify(store, correction["predecessor_receipt_hash"])
         self.assertEqual(resolved["receipt_hash"], original["receipt_hash"])
-        # Recompute predecessor hash and confirm match
+        # Three-way: lookup reference == stored receipt hash == recomputed digest
         recomputed = _receipt({k: v for k, v in resolved.items() if k != "receipt_hash"})
         self.assertEqual(recomputed, original["receipt_hash"])
+        self.assertEqual(correction["predecessor_receipt_hash"], resolved["receipt_hash"])
+
+        # Byte preservation: original canonical bytes unchanged
+        preserved_bytes = _canonical({k: v for k, v in resolved.items() if k != "receipt_hash"})
+        self.assertEqual(preserved_bytes, original_bytes)
 
         # Tampering check: mutate stored original after the fact
         store[original["receipt_hash"]] = dict(original)
@@ -326,6 +341,9 @@ class TestDrone01Local(unittest.TestCase):
         pred = store[pred_hash]
         if pred.get("schema") not in ALLOWED_VERSIONS:
             raise ValueError("predecessor version not in allowlist")
+        # Equality with the lookup reference
+        if pred.get("receipt_hash") != pred_hash:
+            raise ValueError("predecessor receipt_hash does not match lookup reference")
         recomputed = _receipt({k: v for k, v in pred.items() if k != "receipt_hash"})
         if recomputed != pred["receipt_hash"]:
             raise ValueError("predecessor hash mismatch (tampering or corruption)")
