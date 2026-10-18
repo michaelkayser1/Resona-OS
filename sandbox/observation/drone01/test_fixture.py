@@ -335,6 +335,43 @@ class TestDrone01Local(unittest.TestCase):
         self._assert_valid(original)
         self._assert_valid(correction)
 
+    def _verifiable_predecessor(self) -> dict[str, Any]:
+        return build_observation(
+            session_id="s6n",
+            timestamp_utc="2026-10-17T21:20:00Z",
+            prompt_hashes=["d" * 64],
+            repetition_count=1,
+            window_seconds=60,
+            declared_hypothesis=None,
+            controls_present=False,
+            authorization_ref=None,
+            force_label=False,
+        )
+
+    def test_dr6_rejects_unsupported_predecessor_version(self) -> None:
+        """Stored predecessor with a schema outside the allowlist fails at the allowlist check."""
+        pred = self._verifiable_predecessor()
+        key = pred["receipt_hash"]
+        # Positive control: unmodified record verifies under its own key.
+        self.assertIs(self._resolve_and_verify({key: pred}, key), pred)
+
+        unsupported = dict(pred, schema="resona.drone01.observation.v2")
+        self.assertEqual(unsupported["receipt_hash"], key)  # only the version differs
+        with self.assertRaisesRegex(ValueError, "not in allowlist"):
+            self._resolve_and_verify({key: unsupported}, key)
+
+    def test_dr6_rejects_lookup_reference_mismatch(self) -> None:
+        """Record stored under key K whose receipt_hash != K fails at the lookup-reference check."""
+        pred = self._verifiable_predecessor()
+        own_key = pred["receipt_hash"]
+        # Positive control: verifies under its own key, so version and recomputation pass.
+        self.assertIs(self._resolve_and_verify({own_key: pred}, own_key), pred)
+
+        other_key = "f" * 64
+        self.assertNotEqual(other_key, own_key)
+        with self.assertRaisesRegex(ValueError, "does not match lookup reference"):
+            self._resolve_and_verify({other_key: pred}, other_key)
+
     def _resolve_and_verify(self, store: dict[str, dict[str, Any]], pred_hash: str | None) -> dict[str, Any]:
         if pred_hash is None or pred_hash not in store:
             raise ValueError("unresolved predecessor")
