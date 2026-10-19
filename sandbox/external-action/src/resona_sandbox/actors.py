@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
-from .storage import ContentStore, MarkerStore, NonceStore, OpLog
+from .storage import ContentStore, MarkerStore, NonceStore, OpLog, RevocationStore
 from .wire import (
     APPROVAL_FIELDS, ROLES, TOKEN_FIELDS, Hold, approval_payload, approvals_hash,
     canonical, exact, fingerprint, iso, parse_json, sha, sign_token, token_payload,
@@ -128,6 +128,66 @@ class Marker:
         self.log.append({"request_id": action["request_id"], "marker": action["marker"],
                          "at_utc": iso(now)})
         return record
+
+
+class DestinationVerifier:
+    """Effect-boundary verifier for the synthetic Path 2 revocation challenge."""
+
+    def __init__(self, revocations: RevocationStore, witness_keys: dict[str, Ed25519PublicKey],
+                 effect_client, log: OpLog, active_policy_sha256: str):
+        if not isinstance(active_policy_sha256, str) or re.fullmatch(r"[0-9a-f]{64}", active_policy_sha256) is None:
+            raise ValueError("Destination verifier requires an independently pinned active policy SHA-256")
+        self.revocations = revocations
+        self.witness_keys = witness_keys
+        self.effect_client = effect_client
+        self.log = log
+        self.active_policy_sha256 = active_policy_sha256
+
+    def revoke(self, request_id: str, received_at: datetime):
+        moment = utc(iso(received_at))
+        stored = self.revocations.revoke(request_id, iso(moment))
+        self.log.append({"request_id": request_id, "decision": "REVOKED",
+                         "received_at_utc": stored})
+        return {"request_id": request_id, "decision": "REVOKED", "received_at_utc": stored}
+
+    def apply(self, action: dict, token: dict, now: datetime):
+        request_id = action.get("request_id", "invalid") if isinstance(action, dict) else "invalid"
+        try:
+            validate_action(action)
+            fp = fingerprint(action)
+            payload = token_payload(token)
+            key = self.witness_keys.get(token["witness_key_id"])
+            if key is None:
+                raise Hold("UNKNOWN_WITNESS")
+            verify_sig(key, token["signature"], b"RESONA-WITNESS-v0.1\n", payload)
+            if any(token[k] != value for k, value in {
+                "request_id": action["request_id"],
+                "action_fingerprint": fp,
+                "policy_sha256": action["policy_sha256"],
+                "evidence_sha256": action["evidence_sha256"],
+            }.items()):
+                raise Hold("TOKEN_SCOPE_MISMATCH")
+            if token["policy_sha256"] != self.active_policy_sha256:
+                raise Hold("POLICY_NOT_ACTIVE")
+            moment = utc(iso(now))
+            if not utc(token["not_before_utc"]) <= moment < utc(token["expires_at_utc"]):
+                raise Hold("EXPIRED_OR_EARLY")
+            revoked_at = self.revocations.received_at(request_id)
+            if revoked_at is not None and utc(revoked_at) <= moment:
+                raise Hold("REVOKED")
+            result = self.effect_client(action, moment)
+            expected = {"request_id": request_id, "marker": action["marker"]}
+            if result != expected:
+                raise Hold("MARKER_MISMATCH")
+            self.log.append({"request_id": request_id, "decision": "EFFECT_ALLOWED",
+                             "fingerprint": fp, "at_utc": iso(moment)})
+            return {"request_id": request_id, "decision": "EFFECT_ALLOWED",
+                    "reason": "DESTINATION_VERIFIED", "recorded_at_utc": iso(moment),
+                    "marker_record_id": request_id}
+        except Hold as exc:
+            self.log.append({"request_id": str(request_id), "decision": "HOLD",
+                             "reason": exc.code, "at_utc": iso(now)})
+            raise
 
 
 class Executor:
