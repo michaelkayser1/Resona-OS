@@ -45,10 +45,11 @@ class ProcessWiring(unittest.TestCase):
     def test_separate_processes_and_custodian_head(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
-            marker_port, witness_port, executor_port, custodian_port = [port() for _ in range(4)]
+            marker_port, witness_port, executor_port, verifier_port, custodian_port = [port() for _ in range(5)]
             marker_url = f"http://127.0.0.1:{marker_port}"
             witness_url = f"http://127.0.0.1:{witness_port}"
             executor_url = f"http://127.0.0.1:{executor_port}"
+            verifier_url = f"http://127.0.0.1:{verifier_port}"
             custodian_url = f"http://127.0.0.1:{custodian_port}"
             keys = {str(i): Ed25519PrivateKey.from_private_bytes(bytes([i]) * 32) for i in range(1, 6)}
             witness_private = home / "witness.key"
@@ -106,8 +107,17 @@ class ProcessWiring(unittest.TestCase):
                     "EXECUTOR_AUTH_TOKEN": "executor-secret", "EXECUTOR_NONCE_DB": str(home / "nonce.sqlite"),
                     "EXECUTOR_ACTIVE_POLICY_SHA256": policy_hash,
                     "EXECUTOR_LOG_DB": str(home / "executor-log.sqlite"), "WITNESS_KEY_ID": "W1",
-                    "WITNESS_PUBLIC_KEY_FILE": str(witness_public), "MARKER_URL": marker_url,
-                    "MARKER_AUTH_TOKEN": "marker-secret",
+                    "WITNESS_PUBLIC_KEY_FILE": str(witness_public), "VERIFIER_URL": verifier_url,
+                    "VERIFIER_AUTH_TOKEN": "verifier-effect-secret",
+                },
+                "verifier": {
+                    "VERIFIER_AUTH_TOKEN": "verifier-effect-secret",
+                    "VERIFIER_REVOKE_AUTH_TOKEN": "verifier-revoke-secret",
+                    "VERIFIER_REVOCATION_DB": str(home / "revocation.sqlite"),
+                    "VERIFIER_LOG_DB": str(home / "verifier-log.sqlite"),
+                    "VERIFIER_ACTIVE_POLICY_SHA256": policy_hash,
+                    "WITNESS_KEY_ID": "W1", "WITNESS_PUBLIC_KEY_FILE": str(witness_public),
+                    "MARKER_URL": marker_url, "MARKER_AUTH_TOKEN": "marker-secret",
                 },
                 "custodian": {
                     "CUSTODIAN_AUTH_TOKEN": "custodian-secret", "CUSTODIAN_DB": str(home / "custodian.sqlite"),
@@ -116,13 +126,13 @@ class ProcessWiring(unittest.TestCase):
             }
             processes = []
             try:
-                for role, selected_port in zip(settings, (marker_port, witness_port, executor_port, custodian_port)):
+                for role, selected_port in zip(settings, (marker_port, witness_port, executor_port, verifier_port, custodian_port)):
                     env = {**os.environ, "PYTHONPATH": str(ROOT / "src"),
                            "RESONA_SANDBOX_MODE": "local_test", **settings[role]}
                     processes.append(subprocess.Popen(
                         [sys.executable, str(ROOT / "scripts/serve.py"), role, "--port", str(selected_port)],
                         env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE))
-                for selected_port in (marker_port, witness_port, executor_port, custodian_port):
+                for selected_port in (marker_port, witness_port, executor_port, verifier_port, custodian_port):
                     for attempt in range(50):
                         try:
                             with socket.create_connection(("127.0.0.1", selected_port), timeout=0.1):
@@ -144,6 +154,28 @@ class ProcessWiring(unittest.TestCase):
                 with self.assertRaises(error.HTTPError) as forbidden:
                     post(marker_url + "/marker", "witness-secret", action)
                 self.assertEqual(forbidden.exception.code, 403)
+                revoked_action = {**action, "request_id": "revoked_request", "marker": "revoked_marker"}
+                revoked_fp = fingerprint(revoked_action)
+                revoked_proposal = {
+                    "schema_version": "0.1", "action": revoked_action, "action_fingerprint": revoked_fp,
+                    "approvals": [
+                        sign_approval({"role": role, "actor_id": "A" + str(i),
+                                       "key_id": "K" + str(i), "action_fingerprint": revoked_fp}, keys[str(i)])
+                        for i, role in enumerate(roles, 1)
+                    ],
+                }
+                revoked_token = post(witness_url + "/attest", "internal-attest-secret", revoked_proposal)
+                revoke_receipt = post(verifier_url + "/revoke", "verifier-revoke-secret",
+                                      {"request_id": "revoked_request"})
+                self.assertEqual(revoke_receipt["decision"], "REVOKED")
+                for _ in range(2):
+                    with self.assertRaises(error.HTTPError) as stale:
+                        post(verifier_url + "/effect", "verifier-effect-secret",
+                             {"action": revoked_action, "token": revoked_token})
+                    self.assertEqual(stale.exception.code, 409)
+                    stale_body = json.loads(stale.exception.read())
+                    self.assertEqual(stale_body["reason"], "REVOKED")
+
                 req = request.Request(marker_url + "/markers", headers={"Authorization": "Bearer marker-secret"})
                 with request.urlopen(req, timeout=3) as response:
                     self.assertEqual(json.load(response)["markers"], [["smoke_request", "smoke_marker"]])
