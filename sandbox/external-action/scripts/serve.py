@@ -10,8 +10,8 @@ from urllib import request as http
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
-from resona_sandbox.actors import Executor, Marker, Witness, validate_proposal
-from resona_sandbox.storage import ContentStore, HeadCustodian, MarkerStore, NonceStore, OpLog
+from resona_sandbox.actors import DestinationVerifier, Executor, Marker, Witness, validate_proposal
+from resona_sandbox.storage import ContentStore, HeadCustodian, MarkerStore, NonceStore, OpLog, RevocationStore
 from resona_sandbox.wire import Hold, ID_RE, iso, parse_json
 
 
@@ -53,7 +53,7 @@ def main():
     if os.environ.get("RESONA_SANDBOX_MODE") != "local_test":
         raise SystemExit("Sandbox process requires RESONA_SANDBOX_MODE=local_test")
     parser = argparse.ArgumentParser()
-    parser.add_argument("role", choices=("marker", "witness", "executor", "custodian"))
+    parser.add_argument("role", choices=("marker", "witness", "executor", "verifier", "custodian"))
     parser.add_argument("--port", type=int, required=True)
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
@@ -75,6 +75,14 @@ def main():
                          {required("WITNESS_KEY_ID"): public("WITNESS_PUBLIC_KEY_FILE")},
                          marker_client, OpLog(required("EXECUTOR_LOG_DB"), "executor"),
                          required("EXECUTOR_ACTIVE_POLICY_SHA256"))
+    elif role == "verifier":
+        actor = DestinationVerifier(RevocationStore(required("VERIFIER_REVOCATION_DB")),
+                                    {required("WITNESS_KEY_ID"): public("WITNESS_PUBLIC_KEY_FILE")},
+                                    marker_client, OpLog(required("VERIFIER_LOG_DB"), "verifier"),
+                                    required("VERIFIER_ACTIVE_POLICY_SHA256"))
+        revoke_auth = required("VERIFIER_REVOKE_AUTH_TOKEN")
+        if revoke_auth == auth:
+            raise SystemExit("Verifier effect and revocation tokens must differ")
     else:
         keys = json.loads(Path(required("CUSTODIAN_KEYS_FILE")).read_text())
         actor = HeadCustodian(required("CUSTODIAN_DB"),
@@ -91,7 +99,11 @@ def main():
             self.wfile.write(body)
 
         def do_POST(self):
-            required_auth = (attest_auth if role == "witness" and self.path == "/attest" else auth)
+            required_auth = auth
+            if role == "witness" and self.path == "/attest":
+                required_auth = attest_auth
+            elif role == "verifier" and self.path == "/revoke":
+                required_auth = revoke_auth
             if self.headers.get("Authorization") != "Bearer " + required_auth:
                 self.respond(403, {"error": "FORBIDDEN"})
                 return
@@ -115,6 +127,16 @@ def main():
                     if not isinstance(body, dict) or set(body) != {"proposal", "token"}:
                         raise Hold("INVALID_FIELDS")
                     result = actor.dispatch(body["proposal"], body["token"], now())
+                elif role == "verifier" and self.path == "/effect":
+                    if not isinstance(body, dict) or set(body) != {"action", "token"}:
+                        raise Hold("INVALID_FIELDS")
+                    result = actor.apply(body["action"], body["token"], now())
+                elif role == "verifier" and self.path == "/revoke":
+                    if not isinstance(body, dict) or set(body) != {"request_id"} or (
+                        not isinstance(body["request_id"], str) or not ID_RE.fullmatch(body["request_id"])
+                    ):
+                        raise Hold("INVALID_FIELDS")
+                    result = actor.revoke(body["request_id"], now())
                 elif role == "custodian" and self.path == "/heads":
                     actor.accept(body)
                     result = {"accepted": True}
@@ -129,6 +151,14 @@ def main():
                 if role == "executor" and self.path == "/execute":
                     proposal = body.get("proposal", {}) if isinstance(body, dict) else {}
                     action = proposal.get("action", {}) if isinstance(proposal, dict) else {}
+                    request_id = action.get("request_id", "invalid") if isinstance(action, dict) else "invalid"
+                    if not isinstance(request_id, str) or not ID_RE.fullmatch(request_id):
+                        request_id = "invalid"
+                    self.respond(409, {"request_id": str(request_id), "decision": "HOLD",
+                                       "reason": exc.code, "recorded_at_utc": iso(now()),
+                                       "marker_record_id": None})
+                elif role == "verifier" and self.path == "/effect":
+                    action = body.get("action", {}) if isinstance(body, dict) else {}
                     request_id = action.get("request_id", "invalid") if isinstance(action, dict) else "invalid"
                     if not isinstance(request_id, str) or not ID_RE.fullmatch(request_id):
                         request_id = "invalid"
