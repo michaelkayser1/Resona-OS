@@ -69,7 +69,7 @@ class Engineering(unittest.TestCase):
         self.witness = Witness(self.content, "W1", self.witness_key, self.witness_log, self.policy_hash)
         self.marker = Marker(self.marker_store, self.marker_log)
         self.executor = Executor(
-            self.nonces, {"W1": self.witness_key.public_key()}, self.marker.write, self.executor_log, self.policy_hash)
+            self.nonces, {"W1": self.witness_key.public_key()}, lambda action, token, when: self.marker.write(action, when), self.executor_log, self.policy_hash)
         self.destination = DestinationVerifier(
             self.revocations, {"W1": self.witness_key.public_key()}, self.marker.write,
             self.verifier_log, self.policy_hash)
@@ -233,7 +233,7 @@ class Engineering(unittest.TestCase):
         p = self.proposal()
         token = self.witness.decide(p, NOW, nonce="one-token")
         executors = [Executor(NonceStore(str(self.root / f"nonce-{i}.sqlite")),
-                              {"W1": self.witness_key.public_key()}, self.marker.write,
+                              {"W1": self.witness_key.public_key()}, lambda action, token, when: self.marker.write(action, when),
                               self.executor_log, self.policy_hash) for i in range(2)]
         with ThreadPoolExecutor(max_workers=2) as pool:
             results = list(pool.map(lambda e: e.dispatch(p, token, NOW), executors))
@@ -279,12 +279,12 @@ class Engineering(unittest.TestCase):
         for bad in (None, "", "A" * 64, "x" * 64):
             with self.assertRaisesRegex(ValueError, "active policy"):
                 Executor(self.nonces, {"W1": self.witness_key.public_key()},
-                         self.marker.write, self.executor_log, bad)
+                         lambda action, token, when: self.marker.write(action, when), self.executor_log, bad)
 
     def test_marker_write_then_lost_ack_requires_reconciliation(self):
         p = self.proposal()
         token = self.witness.decide(p, NOW, nonce="lost-ack")
-        def lost_ack(action, when):
+        def lost_ack(action, token, when):
             self.marker.write(action, when)
             raise Hold("MARKER_UNAVAILABLE")
         executor = Executor(self.nonces, {"W1": self.witness_key.public_key()},
