@@ -43,6 +43,20 @@ The decisive capability test is verifier-side rejection, not an operator report 
 
 This is a protocol addition only. The current repository does **not** thereby implement revocation, key destruction, destination-side policy enforcement, or independent custody. See [Clean Exit Stress Test — Partial Execution (Rev. 2)](CLEAN_EXIT_STRESS_TEST_REV2.md).
 
+## Path 2 implementation status (October 19, 2026)
+
+The external-action sandbox now contains a **synthetic destination-side revocation verifier** for the Clean Exit Path 2 probe. The executor path is routed through the verifier before the marker effect. The verifier maintains a separate revocation-receipt store, rechecks the signed witness token, action fingerprint, active policy pin, lease boundary, and revocation state at the effect boundary, and only then may call the marker service.
+
+Engineering tests have been added for:
+
+- cached-token presentation after revocation from two verifier instances sharing the verifier-owned revocation store;
+- separation of revocation and expiry boundaries;
+- action-scope mismatch at the destination verifier;
+- five-process loopback wiring in which the executor no longer holds the marker credential; and
+- direct stale-token presentation to the verifier after a recorded revocation.
+
+**Evidence status:** implementation and test definitions are present in source. Their successful execution has **not been established in this status record**. This is not independent validation, not production authority, and not evidence that all real enforcement points are enumerated. The revocation database, clocks, verifier process, and marker process remain local engineering components without independent custody.
+
 ## First meaningful validation milestone
 
 Use one harmless external action in a controlled test environment. Pre-register the policy and evidence schema. Demonstrate that a valid signed request executes exactly once and that missing evidence, expired authority, changed parameters, replay, signer conflicts, and unavailable policy services all hold without execution. Keep independent logs of the gate and external system; reconcile both after the test. Repeat across model versions and after a restart. Publish the test protocol, results, and failures before claiming the control is effective.
