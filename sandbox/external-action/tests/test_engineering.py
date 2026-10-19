@@ -11,8 +11,8 @@ from pathlib import Path
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from resona_sandbox.actors import Executor, Marker, Witness
-from resona_sandbox.storage import ContentStore, HeadCustodian, MarkerStore, NonceStore, OpLog
+from resona_sandbox.actors import DestinationVerifier, Executor, Marker, Witness
+from resona_sandbox.storage import ContentStore, HeadCustodian, MarkerStore, NonceStore, OpLog, RevocationStore
 from resona_sandbox.wire import Hold, b64, canonical, fingerprint, parse_json, sha, sign_approval, sign_token, approvals_hash
 
 NOW = datetime(2026, 9, 26, 16, 0, tzinfo=timezone.utc)
@@ -62,12 +62,17 @@ class Engineering(unittest.TestCase):
         self.witness_log = OpLog(str(self.root / "witness.sqlite"), "witness")
         self.marker_log = OpLog(str(self.root / "marker-log.sqlite"), "marker")
         self.executor_log = OpLog(str(self.root / "executor-log.sqlite"), "executor")
+        self.verifier_log = OpLog(str(self.root / "verifier-log.sqlite"), "verifier")
         self.marker_store = MarkerStore(str(self.root / "marker.sqlite"))
         self.nonces = NonceStore(str(self.root / "nonce.sqlite"))
+        self.revocations = RevocationStore(str(self.root / "revocation.sqlite"))
         self.witness = Witness(self.content, "W1", self.witness_key, self.witness_log, self.policy_hash)
         self.marker = Marker(self.marker_store, self.marker_log)
         self.executor = Executor(
             self.nonces, {"W1": self.witness_key.public_key()}, self.marker.write, self.executor_log, self.policy_hash)
+        self.destination = DestinationVerifier(
+            self.revocations, {"W1": self.witness_key.public_key()}, self.marker.write,
+            self.verifier_log, self.policy_hash)
 
     def proposal(self, request_id="R1", **changes):
         action = {
@@ -114,6 +119,54 @@ class Engineering(unittest.TestCase):
         with self.assertRaisesRegex(Hold, "REPLAY"):
             fresh.dispatch(p, token, NOW)
         self.assertEqual(self.marker_store.all(), [("R1", "M1")])
+
+    def test_path2_cached_token_rejected_after_destination_revocation(self):
+        p = self.proposal(request_id="path2_revoked")
+        token = self.witness.decide(p, NOW, nonce="cached-before-revocation")
+        self.destination.revoke("path2_revoked", NOW + timedelta(seconds=5))
+
+        # Simulate two uncoordinated presenters holding the same still-unexpired token.
+        presenter_a = DestinationVerifier(
+            RevocationStore(str(self.root / "revocation.sqlite")),
+            {"W1": self.witness_key.public_key()}, self.marker.write,
+            self.verifier_log, self.policy_hash)
+        presenter_b = DestinationVerifier(
+            RevocationStore(str(self.root / "revocation.sqlite")),
+            {"W1": self.witness_key.public_key()}, self.marker.write,
+            self.verifier_log, self.policy_hash)
+
+        for verifier in (presenter_a, presenter_b):
+            with self.assertRaisesRegex(Hold, "REVOKED"):
+                verifier.apply(p["action"], token, NOW + timedelta(seconds=6))
+        self.assertEqual(self.marker_store.all(), [])
+
+    def test_destination_revocation_boundary_and_expiry_are_distinct(self):
+        p = self.proposal(request_id="boundary")
+        token = self.witness.decide(p, NOW, nonce="boundary-token")
+        self.destination.revoke("boundary", NOW + timedelta(seconds=10))
+
+        # Before the verifier receives revocation, the signed authority remains live.
+        allowed = self.destination.apply(p["action"], token, NOW + timedelta(seconds=9))
+        self.assertEqual(allowed["decision"], "EFFECT_ALLOWED")
+        self.assertEqual(self.marker_store.all(), [("boundary", "M1")])
+
+        # After the recorded revocation boundary, the same unexpired token is stale.
+        with self.assertRaisesRegex(Hold, "REVOKED"):
+            self.destination.apply(p["action"], token, NOW + timedelta(seconds=11))
+
+        expired = self.proposal(request_id="expired_only")
+        expired_token = self.witness.decide(expired, NOW, nonce="expired-token")
+        with self.assertRaisesRegex(Hold, "EXPIRED_OR_EARLY"):
+            self.destination.apply(expired["action"], expired_token, NOW + timedelta(seconds=60))
+        self.assertEqual(self.marker_store.all(), [("boundary", "M1")])
+
+    def test_destination_rejects_token_for_wrong_action_scope(self):
+        p = self.proposal(request_id="scope_a")
+        token = self.witness.decide(p, NOW, nonce="scope-token")
+        other = self.proposal(request_id="scope_b")
+        with self.assertRaisesRegex(Hold, "TOKEN_SCOPE_MISMATCH"):
+            self.destination.apply(other["action"], token, NOW + timedelta(seconds=1))
+        self.assertEqual(self.marker_store.all(), [])
 
     def test_missing_evidence_and_post_approval_mutation_hold(self):
         p = self.proposal(evidence_sha256="f" * 64)
