@@ -214,7 +214,9 @@ class Engineering(unittest.TestCase):
         token = self.witness.decide(p, NOW, nonce="shared-nonce")
         executors = [
             Executor(NonceStore(str(self.root / "nonce.sqlite")),
-                     {"W1": self.witness_key.public_key()}, self.marker.write, self.executor_log, self.policy_hash)
+                     {"W1": self.witness_key.public_key()},
+                     lambda action, token, when: self.marker.write(action, when),
+                     self.executor_log, self.policy_hash)
             for _ in range(2)
         ]
         def attempt(index):
