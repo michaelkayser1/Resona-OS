@@ -221,7 +221,14 @@ class Executor:
                 raise Hold("EXPIRED_OR_EARLY")
             self.nonces.consume(token["nonce"], request_id)
             result = self.effect_client(action, token, moment)
-            if result != {"request_id": request_id, "marker": action["marker"]}:
+            legacy_marker = {"request_id": request_id, "marker": action["marker"]}
+            verified_effect = (
+                isinstance(result, dict)
+                and result.get("request_id") == request_id
+                and result.get("decision") == "EFFECT_ALLOWED"
+                and result.get("marker_record_id") == request_id
+            )
+            if result != legacy_marker and not verified_effect:
                 raise Hold("MARKER_MISMATCH")
             self.log.append({"request_id": request_id, "decision": "DISPATCHED",
                              "fingerprint": fp, "at_utc": iso(moment)})
