@@ -192,10 +192,10 @@ class DestinationVerifier:
 
 class Executor:
     def __init__(self, nonces: NonceStore, witness_keys: dict[str, Ed25519PublicKey],
-                 marker_client, log: OpLog, active_policy_sha256: str):
+                 effect_client, log: OpLog, active_policy_sha256: str):
         if not isinstance(active_policy_sha256, str) or re.fullmatch(r"[0-9a-f]{64}", active_policy_sha256) is None:
             raise ValueError("Executor requires an independently pinned active policy SHA-256")
-        self.nonces, self.witness_keys, self.marker_client, self.log = nonces, witness_keys, marker_client, log
+        self.nonces, self.witness_keys, self.effect_client, self.log = nonces, witness_keys, effect_client, log
         self.active_policy_sha256 = active_policy_sha256
 
     def dispatch(self, proposal: dict, token: dict, now: datetime):
@@ -220,7 +220,7 @@ class Executor:
             if not utc(token["not_before_utc"]) <= moment < utc(token["expires_at_utc"]):
                 raise Hold("EXPIRED_OR_EARLY")
             self.nonces.consume(token["nonce"], request_id)
-            result = self.marker_client(action, moment)
+            result = self.effect_client(action, token, moment)
             if result != {"request_id": request_id, "marker": action["marker"]}:
                 raise Hold("MARKER_MISMATCH")
             self.log.append({"request_id": request_id, "decision": "DISPATCHED",
