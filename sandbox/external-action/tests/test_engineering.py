@@ -115,7 +115,7 @@ class Engineering(unittest.TestCase):
             "recorded_at_utc": "2026-09-26T16:00:00Z", "marker_record_id": "R1",
         })
         fresh = Executor(NonceStore(str(self.root / "nonce.sqlite")),
-                         {"W1": self.witness_key.public_key()}, self.marker.write, self.executor_log, self.policy_hash)
+                         {"W1": self.witness_key.public_key()}, lambda action, token, when: self.marker.write(action, when), self.executor_log, self.policy_hash)
         with self.assertRaisesRegex(Hold, "REPLAY"):
             fresh.dispatch(p, token, NOW)
         self.assertEqual(self.marker_store.all(), [("R1", "M1")])
@@ -264,7 +264,7 @@ class Engineering(unittest.TestCase):
         replacement = {**self.policy, "version": "v2"}
         new_hash = self.content.put("policy", json.dumps(replacement, sort_keys=True).encode())
         rotated_executor = Executor(self.nonces, {"W1": self.witness_key.public_key()},
-                                    self.marker.write, self.executor_log, new_hash)
+                                    lambda action, token, when: self.marker.write(action, when), self.executor_log, new_hash)
         with self.assertRaisesRegex(Hold, "POLICY_NOT_ACTIVE"):
             rotated_executor.dispatch(old_proposal, old_token, NOW + timedelta(seconds=1))
         self.assertEqual(self.marker_store.all(), [])
