@@ -75,6 +75,34 @@ class NonceStore:
                 raise Hold("REPLAY") from exc
 
 
+class RevocationStore:
+    """Verifier-owned revocation receipts. Local SQLite is not independent custody."""
+
+    def __init__(self, path: str):
+        self.path = path
+        with connect(path) as db:
+            db.execute("CREATE TABLE IF NOT EXISTS revocations (request_id TEXT PRIMARY KEY, received_at_utc TEXT NOT NULL)")
+
+    def revoke(self, request_id: str, received_at_utc: str):
+        with connect(self.path) as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT received_at_utc FROM revocations WHERE request_id=?", (request_id,)).fetchone()
+            if row is None:
+                db.execute("INSERT INTO revocations VALUES (?,?)", (request_id, received_at_utc))
+                return received_at_utc
+            # Revocation is monotonic: a later duplicate cannot move the boundary forward.
+            if received_at_utc < row[0]:
+                db.execute("UPDATE revocations SET received_at_utc=? WHERE request_id=?",
+                           (received_at_utc, request_id))
+                return received_at_utc
+            return row[0]
+
+    def received_at(self, request_id: str):
+        with connect(self.path) as db:
+            row = db.execute("SELECT received_at_utc FROM revocations WHERE request_id=?", (request_id,)).fetchone()
+        return None if row is None else row[0]
+
+
 class OpLog:
     def __init__(self, path: str, actor: str):
         self.path, self.actor = path, actor
