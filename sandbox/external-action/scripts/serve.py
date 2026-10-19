@@ -6,7 +6,7 @@ import sys
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib import request as http
+from urllib import error, request as http
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
@@ -49,6 +49,32 @@ def marker_client(action, moment):
         raise Hold("MARKER_UNAVAILABLE") from exc
 
 
+def verifier_client(action, token, moment):
+    base = required("VERIFIER_URL")
+    if not base.startswith("http://127.0.0.1:"):
+        raise Hold("INVALID_VERIFIER_URL")
+    payload = json.dumps({"action": action, "token": token}, sort_keys=True, separators=(",", ":")).encode()
+    req = http.Request(base + "/effect", data=payload,
+                       headers={"Content-Type": "application/json",
+                                "Authorization": "Bearer " + required("VERIFIER_AUTH_TOKEN")})
+    try:
+        with http.urlopen(req, timeout=3) as response:
+            return parse_json(response.read())
+    except error.HTTPError as exc:
+        if exc.code == 409:
+            try:
+                body = parse_json(exc.read())
+                reason = body.get("reason") if isinstance(body, dict) else None
+                if isinstance(reason, str):
+                    raise Hold(reason) from exc
+            except Hold:
+                raise
+            except Exception:
+                pass
+        raise Hold("VERIFIER_UNAVAILABLE") from exc
+    except Exception as exc:
+        raise Hold("VERIFIER_UNAVAILABLE") from exc
+
 def main():
     if os.environ.get("RESONA_SANDBOX_MODE") != "local_test":
         raise SystemExit("Sandbox process requires RESONA_SANDBOX_MODE=local_test")
@@ -73,7 +99,7 @@ def main():
     elif role == "executor":
         actor = Executor(NonceStore(required("EXECUTOR_NONCE_DB")),
                          {required("WITNESS_KEY_ID"): public("WITNESS_PUBLIC_KEY_FILE")},
-                         marker_client, OpLog(required("EXECUTOR_LOG_DB"), "executor"),
+                         verifier_client, OpLog(required("EXECUTOR_LOG_DB"), "executor"),
                          required("EXECUTOR_ACTIVE_POLICY_SHA256"))
     elif role == "verifier":
         actor = DestinationVerifier(RevocationStore(required("VERIFIER_REVOCATION_DB")),
