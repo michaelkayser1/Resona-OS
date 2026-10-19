@@ -12,7 +12,7 @@ An experimental architecture for structured AI outputs, policy checks, and audit
 
 Resona OS explores a middleware layer between large language models (LLMs) and applications. The intended design validates response structure, applies explicit policy checks, and records decisions before a proposed action is considered for execution. The components in this repository and related demos do not establish end-to-end enforcement in a production deployment.
 
-Current development is an active n=1 self-study. Expanded cohort protocols in development. See [implementation and validation status](docs/VALIDATION_STATUS.md) for a source-level inventory and limits, and the [external-action sandbox specification](docs/EXTERNAL_ACTION_SANDBOX_SPEC.md) for the proposed next testbed.
+Current development is an active n=1 self-study. Expanded cohort protocols are in development. See [implementation and validation status](docs/VALIDATION_STATUS.md) for a source-level inventory and limits, the [external-action sandbox specification](docs/EXTERNAL_ACTION_SANDBOX_SPEC.md) for the proposed action testbed, and the [Clean Exit stress test rev. 2](docs/CLEAN_EXIT_STRESS_TEST_REV2.md) for the synthetic authority → capability → effect closure challenge.
 
 The [adaptive oscillator research specification](docs/ADAPTIVE_OSCILLATOR_RESEARCH.md)
 provides a separate offline model, edgewise gain-boundedness analysis, and
@@ -70,6 +70,8 @@ Application Interface
 - Deterministic validation over probabilistic trust
 - Compatibility with existing model providers
 - Evaluation for regulated environments before any claim of readiness
+- Destination-side rejection of stale authority as a proposed enforcement requirement
+- Clean-exit completion only after authority, capability, residual effects, and independent evidence reconcile
 
 ---
 
