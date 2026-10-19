@@ -1,6 +1,6 @@
 # Resona OS: implementation and validation status
 
-**As of September 26, 2026.** This is a source-level inventory, not independent certification. Status can change as the repositories evolve.
+**As of October 19, 2026.** This is a source-level inventory, not independent certification. Status can change as the repositories evolve.
 
 > **Historical result withdrawn:** Earlier passes of this repository's audit verifier do not establish stored-hash or payload tamper detection. See [Historical validity correction](#historical-validity-correction-september-26-2026).
 
@@ -11,6 +11,7 @@
 | [QOTE control-law console](https://github.com/michaelkayser1/qote-control-law) | A browser state-machine simulator with receipts and self-tests | Calibrated thresholds, authenticated independent signers, real tool enforcement, and independent reality verification |
 | [QOTE archive](https://github.com/michaelkayser1/QOTE-Deploy-Pro.) | Historical narrative, proposed math, visualization | Validation of π/2π safety bands or biological/AI equivalence |
 | [Adaptive oscillator research](ADAPTIVE_OSCILLATOR_RESEARCH.md), added 2026-10-04 UTC | Offline unthrottled model, conditional edgewise gain bounds, eight research tests with multi-seed/initial-gain bound cases, Euler refinement and ODE comparisons | Coherence-setpoint control, safety invariance, task progress, novelty, and any authorization or clinical interpretation |
+| [Clean Exit stress test rev. 2](CLEAN_EXIT_STRESS_TEST_REV2.md), added 2026-10-19 UTC | Synthetic test specification for creation-time authority, destination-side revocation/expiry enforcement, residual disposition, key custody, and independent reconciliation | Implementation in the runtime, execution of the six-path challenge, independent witness custody, production authority, and any claim of validated clean-exit behavior |
 
 ## Source-level cautions
 
@@ -29,6 +30,18 @@
 6. A human can stop or exit without prior conversation memory silently conferring authority.
 
 This is an intended architecture. The repositories above demonstrate pieces, not a completed implementation of this contract.
+
+## Clean Exit validation boundary (October 19, 2026)
+
+A new synthetic stress-test specification separates three completion questions without changing the four architectural layers:
+
+1. **Authority closure:** was each action or derivative copy authorized when it was created?
+2. **Capability closure:** can revoked or expired authority still produce the prohibited effect at the destination, regardless of presenter?
+3. **Effect closure:** what authorized disposition governs state already created, including partial ciphertext, keys, audit artifacts, and queued work?
+
+The decisive capability test is verifier-side rejection, not an operator report that a sender or retry worker stopped. Revocation and expiry are separate boundaries. Any completion claim remains **DEFER** until independently controlled records reconcile creation-time authority, verifier behavior, residual disposition, key custody, clock bounds, conflicts of interest, and circular-corroboration risk.
+
+This is a protocol addition only. The current repository does **not** thereby implement revocation, key destruction, destination-side policy enforcement, or independent custody. See [Clean Exit Stress Test — Partial Execution (Rev. 2)](CLEAN_EXIT_STRESS_TEST_REV2.md).
 
 ## First meaningful validation milestone
 
