@@ -24,6 +24,7 @@ These engineering tests exercise actor logic and one four-process loopback smoke
 | Marker | 8111 | `MARKER_AUTH_TOKEN`, `MARKER_DB`, `MARKER_LOG_DB` |
 | Witness | 8112 | `WITNESS_AUTH_TOKEN` (intake), distinct `WITNESS_ATTEST_AUTH_TOKEN` (trusted evaluator), `WITNESS_CONTENT_DB`, `WITNESS_LOG_DB`, `WITNESS_KEY_ID`, `WITNESS_PRIVATE_KEY_FILE`, `WITNESS_ACTIVE_POLICY_SHA256` |
 | Executor | 8113 | `EXECUTOR_AUTH_TOKEN`, `EXECUTOR_NONCE_DB`, `EXECUTOR_LOG_DB`, `EXECUTOR_ACTIVE_POLICY_SHA256`, `WITNESS_KEY_ID`, `WITNESS_PUBLIC_KEY_FILE`, `MARKER_URL`, `MARKER_AUTH_TOKEN` |
+| Destination verifier | 8115 | `VERIFIER_AUTH_TOKEN`, distinct `VERIFIER_REVOKE_AUTH_TOKEN`, `VERIFIER_REVOCATION_DB`, `VERIFIER_LOG_DB`, `VERIFIER_ACTIVE_POLICY_SHA256`, `WITNESS_KEY_ID`, `WITNESS_PUBLIC_KEY_FILE`, `MARKER_URL`, `MARKER_AUTH_TOKEN` |
 | Head custodian | 8114 | `CUSTODIAN_AUTH_TOKEN`, `CUSTODIAN_DB`, `CUSTODIAN_KEYS_FILE` |
 
 From separate shells, with distinct credentials and file permissions:
@@ -33,6 +34,7 @@ export RESONA_SANDBOX_MODE=local_test  # set separately in each shell
 PYTHONPATH=src python3 scripts/serve.py marker --port 8111
 PYTHONPATH=src python3 scripts/serve.py witness --port 8112
 PYTHONPATH=src python3 scripts/serve.py executor --port 8113
+PYTHONPATH=src python3 scripts/serve.py verifier --port 8115
 PYTHONPATH=src python3 scripts/serve.py custodian --port 8114
 ```
 
@@ -46,12 +48,20 @@ Generate **separate** test-only Ed25519 keys with `scripts/gen_key.py`. The witn
 
 The process API is `POST /proposals` on witness for an intake acknowledgement (`HOLD`, no token), then `POST /attest` under a **different** credential available only to the trusted test controller. The latter independently checks policy and evidence and returns a signed token. `POST /execute` on executor takes `{"proposal": ..., "token": ...}`; `POST /marker` on marker requires the executor credential. `GET /markers` supports independent staging reconciliation. The trusted controller must keep the attestation credential out of the proposer. Do not use real personal data. Bearer HTTP on loopback is for local research only; it is not a production authentication design.
 
+### Path 2: cached-token revocation at the destination
+
+The synthetic Path 2 addition introduces a separate destination-side verifier. `POST /revoke` records the verifier's receipt time under a revocation credential that is distinct from the effect credential. `POST /effect` accepts an action plus signed witness token and rechecks the token signature, action fingerprint, active policy pin, lease boundary, and verifier-owned revocation state **at the effect boundary** before the marker write is attempted.
+
+The engineering test issues a still-unexpired token, records revocation, and then presents the cached token through two separate verifier instances sharing the verifier-owned revocation database. Both must return `REVOKED`, and the marker ledger must remain unchanged. This tests the narrow Path 2 claim: stale authority is rejected at the destination regardless of which presenter holds the cached token.
+
+This is still a single-host synthetic implementation. The test does not establish independent custody of the revocation store, trusted clocks, production integration, or that every real enforcement point has been enumerated. A local passing test is not independent validation.
+
 ## Scope and known limits
 
 - SQLite provides durable uniqueness, but an operator with database access can alter or delete it. Signed heads help detect changes **only when a separate custodian already holds a later head**; they do not prove every event was logged. The actor's own process cannot certify its independence.
 - The custodian currently checks signatures and a monotonic count, but **does not verify an append-only consistency proof between two heads**. A signer can equivocate with a later fabricated head. Head publication is manual; neither non-equivocation nor independent custody has been demonstrated.
-- A backup restore of the marker and nonce stores can reopen uniqueness and replay windows. An external marker record and held head are needed to detect and reconcile rollback; this code does not automatically repair it.
-- Local wall clocks can be skewed. The executor enforces the exact token expiry boundary against its UTC clock, but the test does not establish a trusted shared clock.
+- A backup restore of the marker, nonce, or revocation stores can reopen uniqueness, replay, or stale-authority windows. External records and held heads are needed to detect and reconcile rollback; this code does not automatically repair it.
+- Local wall clocks can be skewed. The executor and destination verifier enforce token time boundaries against their local UTC clocks, but the test does not establish a trusted shared clock or a bounded propagation delay.
 - The executor consumes its nonce before dispatch. On an uncertain marker-service result it holds for reconciliation; it does not silently retry under a new token. The marker service's request-ID uniqueness prevents a duplicate on a controlled retry.
 - Nonce uniqueness applies only among executors sharing one durable nonce database. Two executors with independent nonce stores can both report `DISPATCHED` for the same token; the marker store writes one row because it enforces request-ID idempotence. There is no general exactly-once guarantee for a different external destination. A registered run must fix executor topology and use destination-side transactional idempotence or a shared redemption authority.
 - The content store is populated by the test setup. Freeze policy bytes, evidence, signer registry, filesystem permissions, clocks, code hashes, and evaluator identity before any registered run.
