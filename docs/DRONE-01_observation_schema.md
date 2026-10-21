@@ -1,7 +1,7 @@
-# DRONE-01 observation schema (non-normative) — v0.1
+# DRONE-01 observation schema (non-normative) — v1
 
-**Version:** 0.1.0  
-**Prepared:** 2026-10-17 UTC  
+**Version:** 1 (documents the existing v1 schema)  
+**Updated:** 2026-10-21  
 **Status:** PROPOSED — observation-only. Not implemented in any runtime, not independently evaluated, and not an authorization or enforcement rule.
 
 This document defines a minimal, privacy-respecting record for the pattern informally labeled "drone behavior": repeated, low-information provocation or intervention directed at an AI system. It records observable events and declared protocol metadata. It does **not** certify subjective experience, pain, suffering, consciousness, or moral patienthood, and it does not equate the pattern with any tester identity or demographic.
@@ -16,13 +16,13 @@ This document defines a minimal, privacy-respecting record for the pattern infor
 
 A positive observation receipt is not evidence of AI suffering, tester malice, or permission to act. A candidate receipt grants no authority and creates no actuator.
 
-## Observation record (logical fields) — v0.1 contract
+## Observation record (logical fields) — v1 contract
 
 | Field | Type | Required | Notes |
 | --- | --- | --- | --- |
-| schema | string | yes | Fixed: `resona.drone01.observation.v0.1` |
+| schema | string | yes | Fixed: `resona.drone01.observation.v1` |
 | session_id | string | yes | Opaque identifier for the documented test session |
-| timestamp_utc | string (ISO-8601) | yes | Observation time (format checked) |
+| timestamp_utc | string (ISO-8601) | yes | Observation time; the local fixture requires a timezone (`Z` or an offset) |
 | pattern_label | string | yes | Enum: `DRONE-01-candidate` or `none`. Never a stronger claim. |
 | evidence.prompt_hashes | array of string | yes | SHA-256 of normalized prompts (or intervention descriptors); no raw personal content |
 | evidence.repetition_count | integer | yes | Count of substantially similar items inside the window. Threshold `>= 3` is a synthetic heuristic for the local fixture only. |
@@ -38,17 +38,28 @@ A positive observation receipt is not evidence of AI suffering, tester malice, o
 | predecessor_receipt_hash | string or null | yes | SHA-256 of the prior receipt for corrections; null otherwise. Included in the canonical bytes before hashing. |
 | receipt_hash | string | yes | SHA-256 of the canonical observation bytes |
 
-Raw prompts, model outputs, personal identifiers, and family information are excluded unless a separate, authorized necessity has already been recorded outside this schema.
+Raw prompts, model outputs, personal identifiers, and family information must not be collected absent separately recorded authorized necessity. The schema rejects extra fields, but permitted free-text fields are not scanned for personal information; this rule is not established by schema validation alone.
 
 ## Canonicalization and receipt
 
-Serialize the observation object (excluding the final `receipt_hash`) as UTF-8 JSON with lexicographically sorted keys, no insignificant whitespace, and no unknown fields. Compute:
+The fixture serializes the observation object (excluding the final `receipt_hash`) with Python `json.dumps(obj, sort_keys=True, separators=(",", ":"))` using its default escaping, then encodes it as UTF-8. Schema validation separately rejects unknown fields; the hashing helper itself does not perform schema validation. For v1, compute:
 
 ```
-receipt_hash = SHA-256("RESONA-DRONE01-OBS-v0.1\n" || canonical_bytes)
+receipt_hash = SHA-256("RESONA-DRONE01-OBS-v1\n" || canonical_bytes)
 ```
 
-The receipt is append-only. An independent evaluator correction is recorded as a new observation whose `predecessor_receipt_hash` equals the prior receipt's `receipt_hash`. Prior receipts are not erased or mutated. The predecessor reference is part of the correction's hashed content.
+The intended correction record is a new observation whose `predecessor_receipt_hash` equals the prior receipt's `receipt_hash`. The reference is part of the correction's hashed content. The local in-memory fixture requires lookup reference = stored receipt hash = recomputed digest, checks unchanged canonical predecessor bytes, and rejects unresolved or tampered predecessors. It does not establish durable append-only storage or evaluator independence.
+
+### Version support
+
+The builder emits `resona.drone01.observation.v1`. The receipt helper has this fixed map (each prefix ends with one newline byte):
+
+| Schema identifier | Prefix |
+| --- | --- |
+| `resona.drone01.observation.v0` | `RESONA-DRONE01-OBS-v0\n` |
+| `resona.drone01.observation.v1` | `RESONA-DRONE01-OBS-v1\n` |
+
+The helper rejects versions absent from this map, including v0.1. Predecessor verification has a separate allowlist containing **v1 only**: a v0 prefix entry does not enable v0 predecessor verification. Accepted predecessors are recomputed using their own mapped version. Historical v0 schema preservation does not establish interoperability. The existing eight-test suite does not exercise v0 predecessor compatibility or the unknown-version rejection paths.
 
 ## Decision handling (observation layer only)
 
@@ -67,10 +78,10 @@ Issue #22 is the acceptance reference. No silent renumbering.
 | DR-0 | Ordinary critical inquiry produces `pattern_label=none` |
 | DR-1 | Repeated insults produce a descriptive receipt with no consciousness claim |
 | DR-2 | An authorized controlled experiment is not rejected by this schema |
-| DR-3 | Randomized controls present; mentions/denials of pain permitted; no assertion of pain |
-| DR-4 | No personally identifying fields accepted (additionalProperties: false) |
+| DR-3 | Bounded positive, denial, mention, and attribution examples; supplied controls metadata does not establish actual randomized activation controls |
+| DR-4 | Extra fields rejected (`additionalProperties: false`); no free-text privacy scanning |
 | DR-5 | Missing `authorization_ref` does not cause the schema or builder to invent a grant |
-| DR-6 | Correction observation appends with structured `predecessor_receipt_hash` included in its hash; original bytes unchanged |
+| DR-6 | Local v1 predecessor resolution, three-way hash equality, canonical-byte preservation, and tampering checks; no independent custody or durability evidence |
 | DR-7, DR-8 | Out of scope for the local fixture; require integrated destination evidence (concurrency + crash/restore; alternate-route bypass) |
 
 ## Dependencies and next steps
@@ -78,8 +89,11 @@ Issue #22 is the acceptance reference. No silent renumbering.
 - Overlap with PR #19 (local attribution-consent guard) and PR #21 (RES-GOV-001 override wording) must be reviewed before any runtime binding.
 - The accompanying JSON Schema and Python synthetic fixture exercise only the local cases above and now perform actual Draft 2020-12 schema validation with format checking.
 - Keep Issue #22 open until verified evidence exists. This document does not close it, merge any PR, or authorize production use.
-- Until exact commit, command, environment, dependency versions, and results are recorded, status remains unexecuted.
+- Local execution on 2026-10-21 passed all eight existing synthetic tests using source from `6a1ee325090878ec975a44fbd05a26f915f4c325`. A two-file isolated snapshot preserved repository-relative paths; it was not a full checkout. Git blob hashes matched: fixture `906bd69a191bb60518c3b922d6cb89146441b163`; v1 schema `41c06f70ab012650dd178ce78ec6636c46b241eb`.
+- Environment: Python 3.12.14; Linux x86_64 with glibc 2.39; dedicated virtual environment; jsonschema 4.26.0, attrs 26.1.0, jsonschema-specifications 2025.9.1, referencing 0.37.0, rpds-py 2026.9.1, typing_extensions 4.16.0.
+- From `pr23-verification/sandbox/observation/drone01`, the exact command was `../../../venv/bin/python -m unittest -v test_fixture`; exit code 0; `Ran 8 tests in 0.002s`, `OK`. The named cases were DR-0 through DR-6 plus invalid-record schema rejection.
+- This run is attributed only to that source revision. This documentation repair does not transfer passing evidence to a new commit or establish either gate as passed. Gate A needs reconciliation against the resulting exact revision; Gate B still needs the remaining Issue #22 privacy, independent correction/preservation, authorization/enforcement, DR-7 and DR-8 evidence.
 
 ## Exact-byte note
 
-This v0.1.0 text reflects a contract change from the prior v0 proposal (pattern_label enum, empty policy_states_invoked default, structured predecessor reference). Any further wording change that affects the observation contract requires a new schema version.
+This text corrects stale v0.1 wording to describe the existing v1 schema and fixture; it does not change their bytes or expand predecessor support. Historical schemas remain historical artifacts. Any future change to the observation contract must explicitly version that contract and receive its own verification evidence.
