@@ -21,10 +21,10 @@ These engineering tests exercise actor logic and one five-process loopback smoke
 
 | Role | Port example | Required environment |
 | --- | --- | --- |
-| Marker | 8111 | `MARKER_AUTH_TOKEN`, `MARKER_DB`, `MARKER_LOG_DB` |
+| Marker | 8111 | `MARKER_AUTH_TOKEN`, `DESTINATION_DB`, `MARKER_LOG_DB` |
 | Witness | 8112 | `WITNESS_AUTH_TOKEN` (intake), distinct `WITNESS_ATTEST_AUTH_TOKEN` (trusted evaluator), `WITNESS_CONTENT_DB`, `WITNESS_LOG_DB`, `WITNESS_KEY_ID`, `WITNESS_PRIVATE_KEY_FILE`, `WITNESS_ACTIVE_POLICY_SHA256` |
 | Executor | 8113 | `EXECUTOR_AUTH_TOKEN`, `EXECUTOR_NONCE_DB`, `EXECUTOR_LOG_DB`, `EXECUTOR_ACTIVE_POLICY_SHA256`, `WITNESS_KEY_ID`, `WITNESS_PUBLIC_KEY_FILE`, `VERIFIER_URL`, `VERIFIER_AUTH_TOKEN` |
-| Destination verifier | 8115 | `VERIFIER_AUTH_TOKEN`, distinct `VERIFIER_REVOKE_AUTH_TOKEN`, `VERIFIER_REVOCATION_DB`, `VERIFIER_LOG_DB`, `VERIFIER_ACTIVE_POLICY_SHA256`, `WITNESS_KEY_ID`, `WITNESS_PUBLIC_KEY_FILE`, `MARKER_URL`, `MARKER_AUTH_TOKEN` |
+| Destination verifier | 8115 | `VERIFIER_AUTH_TOKEN`, distinct `VERIFIER_REVOKE_AUTH_TOKEN`, `DESTINATION_DB`, `VERIFIER_LOG_DB`, `VERIFIER_ACTIVE_POLICY_SHA256`, `WITNESS_KEY_ID`, `WITNESS_PUBLIC_KEY_FILE`, `MARKER_URL`, `MARKER_AUTH_TOKEN` |
 | Head custodian | 8114 | `CUSTODIAN_AUTH_TOKEN`, `CUSTODIAN_DB`, `CUSTODIAN_KEYS_FILE` |
 
 From separate shells, with distinct credentials and file permissions:
@@ -40,7 +40,7 @@ PYTHONPATH=src python3 scripts/serve.py custodian --port 8114
 
 Each process requires `RESONA_SANDBOX_MODE=local_test` in its environment and refuses to start otherwise. The sandbox directory is not imported by the Next.js application. This guard prevents accidental startup through the documented adapter; it is not a security boundary against someone who can run arbitrary code or set environment variables.
 
-Only `127.0.0.1` is bound. The marker endpoint accepts a bearer credential held by the destination verifier, not by the executor; it enforces request-ID uniqueness in SQLite. The witness content store is opened read-only in the witness process and must be populated and protected by a different policy owner before testing. The witness cannot write marker records, and the marker cannot read policy or signing keys. Keep each database, key, and bearer credential in actor-specific operating-system custody.
+Only `127.0.0.1` is bound. The marker endpoint accepts a bearer credential held by the destination verifier, not by the executor; it enforces request-ID uniqueness in SQLite. The witness content store is opened read-only in the witness process and must be populated and protected by a different policy owner before testing. The witness cannot write marker records, and the marker cannot read policy or signing keys. The marker and verifier must share the exact same `DESTINATION_DB` file (an absolute local path) containing both marker rows and revocation receipts. Other databases, keys, and credentials remain actor-specific. This shared destination store changes the local custody layout; it does not establish independent custody. Existing split databases require an explicit reviewed migration; this patch does not merge or migrate them automatically.
 
 The policy owner must supply the current 64-character lowercase SHA-256 digest as `WITNESS_ACTIVE_POLICY_SHA256` outside the proposal. The executor separately requires `EXECUTOR_ACTIVE_POLICY_SHA256` and rejects even a correctly signed, unexpired token whose policy digest differs. The witness rejects any other policy hash, even if the old policy and its signing keys remain in the content store. Changing either pin requires a controlled restart. Configuration custody and synchronized rollout are external responsibilities: old executor processes that have not restarted can still redeem old tokens; a witness and executor on different pins fail closed for new tokens. The two variables in this single-host smoke test do not establish independently held authority or an atomic rotation instant.
 
@@ -50,9 +50,17 @@ The process API is `POST /proposals` on witness for an intake acknowledgement (`
 
 ### Path 2: cached-token revocation at the destination
 
-The synthetic Path 2 addition introduces a separate destination-side verifier. `POST /revoke` records the verifier's receipt time under a revocation credential that is distinct from the effect credential. `POST /effect` accepts an action plus signed witness token and rechecks the token signature, action fingerprint, active policy pin, lease boundary, and verifier-owned revocation state **at the effect boundary** before the marker write is attempted.
+The synthetic Path 2 addition introduces a separate destination-side verifier. `POST /revoke` records the verifier's receipt time under a revocation credential that is distinct from the effect credential. `POST /effect` accepts an action plus signed witness token and rechecks the token signature, action fingerprint, active policy pin, lease boundary, and destination revocation state before forwarding the marker request. The final marker transaction rechecks receipt existence and inserts the marker under the same SQLite `BEGIN IMMEDIATE` writer boundary used by revocation commitment. Revocation receipt timestamps are audit metadata, not a way for an old request clock to reopen a committed revocation.
 
-The engineering test issues a still-unexpired token, records revocation, and then presents the cached token through two separate verifier instances sharing the verifier-owned revocation database. Both must return `REVOKED`, and the marker ledger must remain unchanged. This tests the narrow Path 2 claim: stale authority is rejected at the destination regardless of which presenter holds the cached token.
+The engineering test issues a still-unexpired token, records revocation, and then presents the cached token through two separate verifier instances sharing the destination database. Both must return `REVOKED`, and the marker ledger must remain unchanged. This tests the narrow Path 2 claim: stale authority is rejected at the destination regardless of which presenter holds the cached token.
+
+### Revocation ordering and regression scope
+
+The final revocation check and marker insertion share one database transaction. If revocation commits and is acknowledged first, even an already-forwarded or delayed marker request returns `HOLD` with reason `REVOKED`; no marker is inserted. If a marker transaction acquired the writer lock first, revocation waits to commit and acknowledge until that effect has completed. A delayed response for an effect accepted before revocation can arrive after the revocation response; response arrival order is not the effect's linearization order. `REVOKED` remains a reason code, not a seventh execution state.
+
+The 100-worker regression pauses all requests after the verifier's early lookup, commits revocation and obtains its receipt, then releases them toward the final marker transaction. All 100 must report `REVOKED` and the ledger must remain empty. A second test holds the marker transaction open and checks that a separate SQLite connection cannot acquire the writer lock before it completes. Process tests also reject direct presentation of a revoked request to the marker service. The challenge script uses the same five-process topology and shared destination file.
+
+This boundary covers local revocation and marker commitment only. Signature, scope, policy pin, and lease checks still occur in the verifier; the marker bearer credential remains privileged, and direct arbitrary unrevoked writes are not token-verified there. No claim is made that lease expiry or policy rotation is atomic with the final marker transaction. SQLite contention may cause timeouts; uncertain HTTP results still require ledger reconciliation. Keeping the final check inside the marker transaction prevents an HTTP timeout from releasing a verifier-only lock while a delayed remote write continues.
 
 This is still a single-host synthetic implementation. The test does not establish independent custody of the revocation store, trusted clocks, production integration, or that every real enforcement point has been enumerated. A local passing test is not independent validation.
 

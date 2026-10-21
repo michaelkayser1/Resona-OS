@@ -1,20 +1,23 @@
 """Loopback process wiring smoke test, not the preregistered acceptance test."""
 import json
 import os
+import runpy
 import socket
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 from urllib import error, request
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from resona_sandbox.storage import ContentStore
-from resona_sandbox.wire import b64, fingerprint, sign_approval
+from resona_sandbox.wire import Hold, b64, fingerprint, sign_approval
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -93,7 +96,7 @@ class ProcessWiring(unittest.TestCase):
             }
             settings = {
                 "marker": {
-                    "MARKER_AUTH_TOKEN": "marker-secret", "MARKER_DB": str(home / "marker.sqlite"),
+                    "MARKER_AUTH_TOKEN": "marker-secret", "DESTINATION_DB": str(home / "destination.sqlite"),
                     "MARKER_LOG_DB": str(home / "marker-log.sqlite"),
                 },
                 "witness": {
@@ -113,7 +116,7 @@ class ProcessWiring(unittest.TestCase):
                 "verifier": {
                     "VERIFIER_AUTH_TOKEN": "verifier-effect-secret",
                     "VERIFIER_REVOKE_AUTH_TOKEN": "verifier-revoke-secret",
-                    "VERIFIER_REVOCATION_DB": str(home / "revocation.sqlite"),
+                    "DESTINATION_DB": str(home / "destination.sqlite"),
                     "VERIFIER_LOG_DB": str(home / "verifier-log.sqlite"),
                     "VERIFIER_ACTIVE_POLICY_SHA256": policy_hash,
                     "WITNESS_KEY_ID": "W1", "WITNESS_PUBLIC_KEY_FILE": str(witness_public),
@@ -176,6 +179,17 @@ class ProcessWiring(unittest.TestCase):
                     stale_body = json.loads(stale.exception.read())
                     self.assertEqual(stale_body["reason"], "REVOKED")
 
+                # Final destination check also closes the direct marker route
+                # even when a caller has the test-only marker credential.
+                with self.assertRaises(error.HTTPError) as late_marker:
+                    post(marker_url + "/marker", "marker-secret", revoked_action)
+                self.assertEqual(late_marker.exception.code, 409)
+                self.assertEqual(json.loads(late_marker.exception.read())["reason"], "REVOKED")
+                adapter = runpy.run_path(str(ROOT / "scripts/serve.py"))
+                with patch.dict(os.environ, {"MARKER_URL": marker_url, "MARKER_AUTH_TOKEN": "marker-secret"}):
+                    with self.assertRaisesRegex(Hold, "REVOKED"):
+                        adapter["marker_client"](revoked_action, datetime.now(timezone.utc))
+
                 req = request.Request(marker_url + "/markers", headers={"Authorization": "Bearer marker-secret"})
                 with request.urlopen(req, timeout=3) as response:
                     self.assertEqual(json.load(response)["markers"], [["smoke_request", "smoke_marker"]])
@@ -189,7 +203,8 @@ class ProcessWiring(unittest.TestCase):
                 req = request.Request(custodian_url + "/heads/witness",
                                       headers={"Authorization": "Bearer custodian-secret"})
                 with request.urlopen(req, timeout=3) as response:
-                    self.assertEqual(json.load(response)["count"], "2")
+                    # Intake plus two separate attestations are three events.
+                    self.assertEqual(json.load(response)["count"], "3")
             finally:
                 for process in processes:
                     process.terminate()

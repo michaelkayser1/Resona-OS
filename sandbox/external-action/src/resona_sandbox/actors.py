@@ -173,7 +173,9 @@ class DestinationVerifier:
             if not utc(token["not_before_utc"]) <= moment < utc(token["expires_at_utc"]):
                 raise Hold("EXPIRED_OR_EARLY")
             revoked_at = self.revocations.received_at(request_id)
-            if revoked_at is not None and utc(revoked_at) <= moment:
+            # Receipt existence is authoritative. An old request timestamp
+            # must not reopen authority after revocation has committed.
+            if revoked_at is not None:
                 raise Hold("REVOKED")
             result = self.effect_client(action, moment)
             expected = {"request_id": request_id, "marker": action["marker"]}

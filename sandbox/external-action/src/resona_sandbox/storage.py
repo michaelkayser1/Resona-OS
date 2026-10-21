@@ -1,5 +1,6 @@
 """Durable, process-owned staging stores. SQLite is not immutable custody."""
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
@@ -44,10 +45,16 @@ class MarkerStore:
         self.path = path
         with connect(path) as db:
             db.execute("CREATE TABLE IF NOT EXISTS markers (request_id TEXT PRIMARY KEY, marker TEXT NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS revocations (request_id TEXT PRIMARY KEY, received_at_utc TEXT NOT NULL)")
 
     def append(self, request_id: str, marker: str):
-        with connect(self.path) as db:
+        with closing(connect(self.path)) as db, db:
             db.execute("BEGIN IMMEDIATE")
+            # The marker and revocation receipt share one database and writer
+            # transaction. A committed revocation wins even if the caller's
+            # authorization check or supplied clock predates its receipt.
+            if db.execute("SELECT 1 FROM revocations WHERE request_id=?", (request_id,)).fetchone():
+                raise Hold("REVOKED")
             row = db.execute("SELECT marker FROM markers WHERE request_id=?", (request_id,)).fetchone()
             if row is None:
                 db.execute("INSERT INTO markers VALUES (?,?)", (request_id, marker))
@@ -76,7 +83,7 @@ class NonceStore:
 
 
 class RevocationStore:
-    """Verifier-owned revocation receipts. Local SQLite is not independent custody."""
+    """Destination receipts; use the SAME database as MarkerStore. Not independent custody."""
 
     def __init__(self, path: str):
         self.path = path
@@ -84,7 +91,7 @@ class RevocationStore:
             db.execute("CREATE TABLE IF NOT EXISTS revocations (request_id TEXT PRIMARY KEY, received_at_utc TEXT NOT NULL)")
 
     def revoke(self, request_id: str, received_at_utc: str):
-        with connect(self.path) as db:
+        with closing(connect(self.path)) as db, db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT received_at_utc FROM revocations WHERE request_id=?", (request_id,)).fetchone()
             if row is None:

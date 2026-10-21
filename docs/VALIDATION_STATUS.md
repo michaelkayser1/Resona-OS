@@ -57,6 +57,14 @@ Engineering tests have been added for:
 
 **Evidence status:** implementation and test definitions are present in source. Their successful execution has **not been established in this status record**. This is not independent validation, not production authority, and not evidence that all real enforcement points are enumerated. The revocation database, clocks, verifier process, and marker process remain local engineering components without independent custody.
 
+## Path 2 serialization repair (October 21, 2026)
+
+The earlier evidence record is historical: at `b168757c518197af12da0d00900566c70a3b318d`, Actions run 39274347667 ran 22 tests on test-merge `74c84d58954f366b9c44c23f2582455b343b23b5`, with one process-test failure (witness head count 3 versus expected 2). A local paused-effect diagnostic also reproduced a marker write after revocation acknowledgment.
+
+The repair uses one `DESTINATION_DB` file for marker rows and revocation receipts. Both revocation commitment and the marker's final receipt check/write use SQLite writer transactions. Revocation acknowledged first prevents a later marker commit; a marker transaction already holding the writer lock completes before revocation can acknowledge. Receipt existence rejects stale caller clocks. Delayed responses are not evidence of delayed effect commitment.
+
+The regression definitions cover 100 paused requests released after revocation acknowledgment, writer-lock ordering, stale clocks, and direct revoked-marker presentation. The five-process wiring and challenge script use the shared destination store. See PR #26 for the exact tested commit and execution results; definitions and historical results alone are not a pass at an untested revision. The repair does not establish independent acceptance, production authority, complete destination enumeration, crash/restore durability, or atomic lease/policy checks at the marker. No gates or acceptance milestones are declared passed.
+
 ## First meaningful validation milestone
 
 Use one harmless external action in a controlled test environment. Pre-register the policy and evidence schema. Demonstrate that a valid signed request executes exactly once and that missing evidence, expired authority, changed parameters, replay, signer conflicts, and unavailable policy services all hold without execution. Keep independent logs of the gate and external system; reconcile both after the test. Repeat across model versions and after a restart. Publish the test protocol, results, and failures before claiming the control is effective.

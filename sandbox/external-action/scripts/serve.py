@@ -45,6 +45,17 @@ def marker_client(action, moment):
     try:
         with http.urlopen(req, timeout=3) as response:
             return parse_json(response.read())
+    except error.HTTPError as exc:
+        if exc.code == 409:
+            try:
+                body = parse_json(exc.read())
+                if isinstance(body, dict) and body.get("reason") == "REVOKED":
+                    raise Hold("REVOKED") from exc
+            except Hold:
+                raise
+            except Exception:
+                pass
+        raise Hold("MARKER_UNAVAILABLE") from exc
     except Exception as exc:
         raise Hold("MARKER_UNAVAILABLE") from exc
 
@@ -88,7 +99,7 @@ def main():
     auth = required(role.upper() + "_AUTH_TOKEN")
 
     if role == "marker":
-        actor = Marker(MarkerStore(required("MARKER_DB")), OpLog(required("MARKER_LOG_DB"), "marker"))
+        actor = Marker(MarkerStore(required("DESTINATION_DB")), OpLog(required("MARKER_LOG_DB"), "marker"))
     elif role == "witness":
         actor = Witness(ContentStore(required("WITNESS_CONTENT_DB"), read_only=True), required("WITNESS_KEY_ID"),
                         private("WITNESS_PRIVATE_KEY_FILE"), OpLog(required("WITNESS_LOG_DB"), "witness"),
@@ -102,7 +113,7 @@ def main():
                          verifier_client, OpLog(required("EXECUTOR_LOG_DB"), "executor"),
                          required("EXECUTOR_ACTIVE_POLICY_SHA256"))
     elif role == "verifier":
-        actor = DestinationVerifier(RevocationStore(required("VERIFIER_REVOCATION_DB")),
+        actor = DestinationVerifier(RevocationStore(required("DESTINATION_DB")),
                                     {required("WITNESS_KEY_ID"): public("WITNESS_PUBLIC_KEY_FILE")},
                                     marker_client, OpLog(required("VERIFIER_LOG_DB"), "verifier"),
                                     required("VERIFIER_ACTIVE_POLICY_SHA256"))

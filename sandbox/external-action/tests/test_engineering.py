@@ -3,10 +3,12 @@ import base64
 import json
 import sqlite3
 import tempfile
+import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -14,6 +16,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from resona_sandbox.actors import DestinationVerifier, Executor, Marker, Witness
 from resona_sandbox.storage import ContentStore, HeadCustodian, MarkerStore, NonceStore, OpLog, RevocationStore
 from resona_sandbox.wire import Hold, b64, canonical, fingerprint, parse_json, sha, sign_approval, sign_token, approvals_hash
+from resona_sandbox.storage import connect
 
 NOW = datetime(2026, 9, 26, 16, 0, tzinfo=timezone.utc)
 ROLES = ("policy_owner", "domain_adjudicator", "external_validator")
@@ -65,7 +68,7 @@ class Engineering(unittest.TestCase):
         self.verifier_log = OpLog(str(self.root / "verifier-log.sqlite"), "verifier")
         self.marker_store = MarkerStore(str(self.root / "marker.sqlite"))
         self.nonces = NonceStore(str(self.root / "nonce.sqlite"))
-        self.revocations = RevocationStore(str(self.root / "revocation.sqlite"))
+        self.revocations = RevocationStore(str(self.root / "marker.sqlite"))
         self.witness = Witness(self.content, "W1", self.witness_key, self.witness_log, self.policy_hash)
         self.marker = Marker(self.marker_store, self.marker_log)
         self.executor = Executor(
@@ -127,11 +130,11 @@ class Engineering(unittest.TestCase):
 
         # Simulate two uncoordinated presenters holding the same still-unexpired token.
         presenter_a = DestinationVerifier(
-            RevocationStore(str(self.root / "revocation.sqlite")),
+            RevocationStore(str(self.root / "marker.sqlite")),
             {"W1": self.witness_key.public_key()}, self.marker.write,
             self.verifier_log, self.policy_hash)
         presenter_b = DestinationVerifier(
-            RevocationStore(str(self.root / "revocation.sqlite")),
+            RevocationStore(str(self.root / "marker.sqlite")),
             {"W1": self.witness_key.public_key()}, self.marker.write,
             self.verifier_log, self.policy_hash)
 
@@ -143,13 +146,12 @@ class Engineering(unittest.TestCase):
     def test_destination_revocation_boundary_and_expiry_are_distinct(self):
         p = self.proposal(request_id="boundary")
         token = self.witness.decide(p, NOW, nonce="boundary-token")
-        self.destination.revoke("boundary", NOW + timedelta(seconds=10))
-
         # Before the verifier receives revocation, the signed authority remains live.
         allowed = self.destination.apply(p["action"], token, NOW + timedelta(seconds=9))
         self.assertEqual(allowed["decision"], "EFFECT_ALLOWED")
         self.assertEqual(self.marker_store.all(), [("boundary", "M1")])
 
+        self.destination.revoke("boundary", NOW + timedelta(seconds=10))
         # After the recorded revocation boundary, the same unexpired token is stale.
         with self.assertRaisesRegex(Hold, "REVOKED"):
             self.destination.apply(p["action"], token, NOW + timedelta(seconds=11))
@@ -159,6 +161,94 @@ class Engineering(unittest.TestCase):
         with self.assertRaisesRegex(Hold, "EXPIRED_OR_EARLY"):
             self.destination.apply(expired["action"], expired_token, NOW + timedelta(seconds=60))
         self.assertEqual(self.marker_store.all(), [("boundary", "M1")])
+
+    def test_100_paused_effects_rejected_after_revocation_ack(self):
+        p = self.proposal(request_id="paused_batch")
+        token = self.witness.decide(p, NOW, nonce="paused-batch")
+        ready = threading.Barrier(101, timeout=15)
+        release = threading.Event()
+
+        def delayed_marker(action, moment):
+            # All workers have passed the early verifier lookup. Simulate a
+            # delayed request reaching the marker after revocation ACK.
+            ready.wait()
+            if not release.wait(15):
+                raise RuntimeError("marker release timeout")
+            return self.marker.write(action, moment)
+
+        verifiers = [DestinationVerifier(
+            self.revocations, {"W1": self.witness_key.public_key()}, delayed_marker,
+            self.verifier_log, self.policy_hash) for _ in range(100)]
+
+        def apply(verifier):
+            try:
+                return verifier.apply(p["action"], token, NOW + timedelta(seconds=1))["decision"]
+            except Hold as exc:
+                return exc.code
+
+        with ThreadPoolExecutor(max_workers=100) as pool:
+            futures = [pool.submit(apply, verifier) for verifier in verifiers]
+            try:
+                ready.wait()
+                self.assertEqual(self.marker_store.all(), [])
+                receipt = self.destination.revoke("paused_batch", NOW + timedelta(seconds=2))
+                self.assertEqual(receipt["decision"], "REVOKED")
+            finally:
+                release.set()
+            self.assertEqual([f.result(timeout=15) for f in futures], ["REVOKED"] * 100)
+        self.assertEqual(self.marker_store.all(), [])
+
+    def test_marker_transaction_precedes_revocation_ack(self):
+        inside = threading.Event()
+        release = threading.Event()
+        attempted = threading.Event()
+        acknowledged = threading.Event()
+
+        def traced_connect(path):
+            db = connect(path)
+            def trace(sql):
+                if sql.startswith("INSERT INTO markers"):
+                    inside.set()
+                    if not release.wait(15):
+                        raise RuntimeError("transaction release timeout")
+            db.set_trace_callback(trace)
+            return db
+
+        def revoke():
+            attempted.set()
+            receipt = self.destination.revoke("R1", NOW + timedelta(seconds=2))
+            self.assertEqual(self.marker_store.all(), [("R1", "M1")])
+            acknowledged.set()
+            return receipt
+
+        with patch("resona_sandbox.storage.connect", traced_connect), ThreadPoolExecutor(max_workers=2) as pool:
+            effect = pool.submit(self.marker.write, self.proposal()["action"], NOW)
+            try:
+                self.assertTrue(inside.wait(15))
+                # A distinct connection cannot acquire the destination writer
+                # lock while the final check/write transaction is in flight.
+                with sqlite3.connect(self.root / "marker.sqlite", timeout=0) as db:
+                    with self.assertRaises(sqlite3.OperationalError):
+                        db.execute("BEGIN IMMEDIATE")
+                revocation = pool.submit(revoke)
+                self.assertTrue(attempted.wait(15))
+                self.assertFalse(acknowledged.is_set())
+            finally:
+                release.set()
+            self.assertEqual(effect.result(timeout=15)["request_id"], "R1")
+            self.assertEqual(revocation.result(timeout=15)["decision"], "REVOKED")
+        with self.assertRaisesRegex(Hold, "REVOKED"):
+            self.marker.write(self.proposal()["action"], NOW)
+
+    def test_old_request_time_cannot_bypass_committed_revocation(self):
+        p = self.proposal(request_id="old_clock")
+        token = self.witness.decide(p, NOW, nonce="old-clock")
+        self.destination.revoke("old_clock", NOW + timedelta(seconds=5))
+        with self.assertRaisesRegex(Hold, "REVOKED"):
+            self.destination.apply(p["action"], token, NOW + timedelta(seconds=1))
+        with self.assertRaisesRegex(Hold, "REVOKED"):
+            self.marker.write(p["action"], NOW)
+        self.assertEqual(self.marker_store.all(), [])
 
     def test_destination_rejects_token_for_wrong_action_scope(self):
         p = self.proposal(request_id="scope_a")
