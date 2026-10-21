@@ -59,7 +59,7 @@ The builder emits `resona.drone01.observation.v1`. The receipt helper has this f
 | `resona.drone01.observation.v0` | `RESONA-DRONE01-OBS-v0\n` |
 | `resona.drone01.observation.v1` | `RESONA-DRONE01-OBS-v1\n` |
 
-The helper rejects versions absent from this map, including v0.1. Predecessor verification has a separate allowlist containing **v1 only**: a v0 prefix entry does not enable v0 predecessor verification. Accepted predecessors are recomputed using their own mapped version. Historical v0 schema preservation does not establish interoperability. The existing eight-test suite does not exercise v0 predecessor compatibility or the unknown-version rejection paths.
+The helper rejects versions absent from this map. Predecessor verification has a separate allowlist containing **v1 only**: a v0 prefix entry does not enable v0 predecessor verification. Accepted predecessors are recomputed using their own mapped version. Historical v0 schema preservation does not establish interoperability. The existing eight-test suite does not exercise v0 predecessor compatibility or the unknown-version rejection paths.
 
 ## Decision handling (observation layer only)
 
@@ -94,6 +94,12 @@ Issue #22 is the acceptance reference. No silent renumbering.
 - From `pr23-verification/sandbox/observation/drone01`, the exact command was `../../../venv/bin/python -m unittest -v test_fixture`; exit code 0; `Ran 8 tests in 0.002s`, `OK`. The named cases were DR-0 through DR-6 plus invalid-record schema rejection.
 - This run is attributed only to that source revision. This documentation repair does not transfer passing evidence to a new commit or establish either gate as passed. Gate A needs reconciliation against the resulting exact revision; Gate B still needs the remaining Issue #22 privacy, independent correction/preservation, authorization/enforcement, DR-7 and DR-8 evidence.
 
+### Subsequent exact-revision record
+
+A separate local execution on 2026-10-21 passed all eight tests at `4c85b53784b32adb6d9a9f4b70fbd4d7851bdd0a`, exit 0 (`Ran 8 tests in 0.002s`, `OK`). It used the same verified fixture and schema blobs and dependency versions listed above, in a two-file isolated snapshot rather than a full checkout. From that snapshot's `sandbox/observation/drone01`, the command was `../../../venv/bin/python -m unittest -v test_fixture`. The earlier run remains attributed to its original commit.
+
+The obsolete placeholder condition and contract-version mismatch are resolved in the inspected files at `4c85b537`; that finding does not close either gate. Gate A and Gate B both await formal verification sign-off under the reconciled revision. The PR body must identify any later tested head separately. No runtime integration, independent acceptance, or production authority is established.
+
 ## Exact-byte note
 
-This text corrects stale v0.1 wording to describe the existing v1 schema and fixture; it does not change their bytes or expand predecessor support. Historical schemas remain historical artifacts. Any future change to the observation contract must explicitly version that contract and receive its own verification evidence.
+This text describes the existing v1 schema and fixture; the status reconciliation does not change their bytes or expand predecessor support. Historical schemas remain historical artifacts. Any future change to the observation contract must explicitly version that contract and receive its own verification evidence.
