@@ -1,0 +1,136 @@
+{
+  "branch": "review/reservation-response-loss-slice",
+  "cases_recorded": 4,
+  "commands": {
+    "runner": "cd sandbox/reservation-slice && python3 run_slice.py",
+    "suite": "python3 -m unittest discover -s tests -v",
+    "suite_env": {
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "RS_EVIDENCE_DIR": "evidence/<run_id>/cases"
+    }
+  },
+  "commit": "8a35d7cf74c8b9f0658a51c18df5cbaea4778a25",
+  "environment": {
+    "kernel": "6.18.44-fc-v140",
+    "machine": "x86_64",
+    "platform": "Linux-6.18.44-fc-v140-x86_64-with-glibc2.39",
+    "python": "3.13.16 (main, Oct  1 2026, 15:40:24) [GCC 13.3.0]",
+    "sqlite": "3.45.1"
+  },
+  "evidence_class": "local reservation-protocol engineering evidence (RS-1); not an acceptance run; Gate A and Gate B unchanged",
+  "expectations_blob_sha1": "3c00f4170070d30ba2922f6a51a82ddb3c499399",
+  "finished_utc": "2026-10-22T15:59:06.994103+00:00",
+  "note": "StoreGuards is a direct-SQL schema check and writes no case file; its result is in unittest.stdout.txt / unittest.stderr.txt.",
+  "per_case": {
+    "test_e1_same_op_id_different_bytes_conflicts": {
+      "classifications": [
+        {
+          "classification": "IDEMPOTENCY_CONFLICT",
+          "label": "changed_value"
+        },
+        {
+          "classification": "IDEMPOTENCY_CONFLICT",
+          "label": "whitespace_only"
+        },
+        {
+          "classification": "IDEMPOTENCY_CONFLICT",
+          "label": "trailing_newline"
+        },
+        {
+          "classification": "REPLAYED_SAME_RESERVATION",
+          "label": "same_bytes_after_conflicts"
+        }
+      ],
+      "distinct_op_ids_reaching_witness": [
+        "op-B"
+      ],
+      "reservation_count": 1,
+      "reservations_per_op_id": {
+        "op-B": 1
+      },
+      "reserved_events_per_op_id": {
+        "op-B": 1
+      },
+      "status": "PASS"
+    },
+    "test_e2_revocation_aware_retry": {
+      "classifications": [
+        {
+          "classification": "REPLAYED_ORIGINAL_IDENTITY_STATUS_REVOKED",
+          "label": "retry_after_revoke"
+        },
+        {
+          "classification": "IDEMPOTENCY_CONFLICT",
+          "label": "different_bytes_after_revoke"
+        },
+        {
+          "classification": "REPLAYED_ORIGINAL_IDENTITY_STATUS_REVOKED",
+          "label": "retry_after_restart"
+        }
+      ],
+      "distinct_op_ids_reaching_witness": [
+        "op-D"
+      ],
+      "reservation_count": 1,
+      "reservations_per_op_id": {
+        "op-D": 1
+      },
+      "reserved_events_per_op_id": {
+        "op-D": 1
+      },
+      "status": "PASS"
+    },
+    "test_e3_sigkill_restart_recovery": {
+      "classifications": [
+        {
+          "classification": "WITNESS_PERSISTED_LOCAL_EFFECT_UNRESOLVED",
+          "label": "recovery_after_restart"
+        },
+        {
+          "classification": "NO_WITNESS_RESERVATION_LOCAL_EFFECT_ABSENT",
+          "label": "control_recovery"
+        },
+        {
+          "classification": "REPLAYED_SAME_RESERVATION",
+          "label": "retry_after_restart"
+        }
+      ],
+      "distinct_op_ids_reaching_witness": [
+        "op-C"
+      ],
+      "reservation_count": 1,
+      "reservations_per_op_id": {
+        "op-C": 1
+      },
+      "reserved_events_per_op_id": {
+        "op-C": 1
+      },
+      "status": "PASS"
+    },
+    "test_e4_response_loss_then_idempotent_retry": {
+      "classifications": [
+        {
+          "classification": "RESPONSE_LOST",
+          "label": "first_attempt"
+        },
+        {
+          "classification": "REPLAYED_SAME_RESERVATION",
+          "label": "retry"
+        }
+      ],
+      "distinct_op_ids_reaching_witness": [
+        "op-A"
+      ],
+      "reservation_count": 1,
+      "reservations_per_op_id": {
+        "op-A": 1
+      },
+      "reserved_events_per_op_id": {
+        "op-A": 1
+      },
+      "status": "PASS"
+    }
+  },
+  "started_utc": "2026-10-22T15:59:06.150581+00:00",
+  "unittest_returncode": 0
+}

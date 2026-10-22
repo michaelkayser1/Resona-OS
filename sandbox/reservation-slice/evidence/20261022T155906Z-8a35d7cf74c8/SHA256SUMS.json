@@ -1,0 +1,9 @@
+{
+  "cases/test_e1_same_op_id_different_bytes_conflicts.json": "12a6c227b73423ecf304958c38f794d93f6bfd3bb43489c0269fd654d48b9420",
+  "cases/test_e2_revocation_aware_retry.json": "7219e25a47b8ac0e2645da91067056e821db8a957698ff15c92e80c06994fb39",
+  "cases/test_e3_sigkill_restart_recovery.json": "97d0e26e99927d1e8ba5785d9984393b0e6b6b6c82425dd334249ec35365eca3",
+  "cases/test_e4_response_loss_then_idempotent_retry.json": "1a94d8e8ea1cc8dccee1a42e678ca845cb56625d08be838b2434ae47ffcecf8c",
+  "manifest.json": "2787957f9a9d508e9815887c26aee46fb152b11a804ce9daa9c9c8885f18397b",
+  "unittest.stderr.txt": "0fe471c58577195251b0d6cc0e21fd21c8c3fac3129ef08e8610642c57e25ce6",
+  "unittest.stdout.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

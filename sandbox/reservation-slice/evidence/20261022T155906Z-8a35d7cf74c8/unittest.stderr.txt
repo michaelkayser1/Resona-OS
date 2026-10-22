@@ -1,0 +1,10 @@
+test_e1_same_op_id_different_bytes_conflicts (test_reservation_slice.SliceCase.test_e1_same_op_id_different_bytes_conflicts) ... ok
+test_e2_revocation_aware_retry (test_reservation_slice.SliceCase.test_e2_revocation_aware_retry) ... ok
+test_e3_sigkill_restart_recovery (test_reservation_slice.SliceCase.test_e3_sigkill_restart_recovery) ... ok
+test_e4_response_loss_then_idempotent_retry (test_reservation_slice.SliceCase.test_e4_response_loss_then_idempotent_retry) ... ok
+test_identity_immutable_status_one_way_no_delete (test_reservation_slice.StoreGuards.test_identity_immutable_status_one_way_no_delete) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.756s
+
+OK
