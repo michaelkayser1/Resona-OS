@@ -118,6 +118,7 @@ class GateCase(unittest.TestCase):
         self.transcript, self.classifications, self.observations = [], [], []
         self.procs, self.counters = [], {}
         self.ops_reaching_witness, self.injected_malformed = set(), set()
+        self.injected_fixture_effects = set()
         self.notes = []
 
     def tearDown(self):
@@ -224,15 +225,19 @@ class GateCase(unittest.TestCase):
                           "classifications": self.classifications, "notes": self.notes,
                           "witness_records": wd, "writer_records": gd,
                           "distinct_op_ids_reaching_witness": sorted(self.ops_reaching_witness),
-                          "injected_malformed_gates": sorted(self.injected_malformed)}
+                          "injected_malformed_gates": sorted(self.injected_malformed),
+                          "injected_fixture_effects": sorted(self.injected_fixture_effects),
+                          "pass_criterion": "EXPECTATIONS-RS2.md as amended by AMENDMENT-RS2-001.md"}
         self.assertEqual(wd["integrity_check"], "ok")
         self.assertEqual(gd["integrity_check"], "ok")
         for op, n in wd["reserved_events_per_op_id"].items():
             self.assertEqual(n, 1, op)
         self.assertEqual(wd["reservation_count"], len(self.ops_reaching_witness))
-        effects = {e["op_id"]: e for e in gd["effects"]}
-        resolutions = {r["id"]: r for r in gd["resolutions"]}
-        checks = {"cleared_gates_with_matching_resolution": 0, "open_gates_without_effect": 0,
+        for e in gd["effects"]:
+            self.assertEqual(e["via"] == "INJECTED_FIXTURE", e["op_id"] in self.injected_fixture_effects)
+        effects = {e["op_id"]: e for e in gd["effects"] if e["op_id"] not in self.injected_fixture_effects}
+        checks = {"cleared_gates_with_matching_resolution": 0,
+                  "open_gates_effect_absent_or_committed_before_opening": 0,
                   "effects_not_written_while_gate_open": 0}
         for g in gd["gates"]:
             op = g["op_id"]
@@ -246,9 +251,14 @@ class GateCase(unittest.TestCase):
                 self.assertEqual((r["op_id"], r["reservation_id"], r["payload_sha256"], r["actor"]),
                                  (op, g["reservation_id"], g["payload_sha256"], wr.RECONCILER), op)
                 checks["cleared_gates_with_matching_resolution"] += 1
-            if g["state"] == "OPEN":
-                self.assertNotIn(op, effects, f"{op}: effect exists while gate is open at seal")
-                checks["open_gates_without_effect"] += 1
+            if g["state"] == "OPEN" and op not in self.injected_fixture_effects:
+                # Amendment 001: an effect may be present only if committed before the gate opened.
+                if op in effects:
+                    opened = [a["seq"] for a in gd["audit"]
+                              if a["op_id"] == op and a["decision"] == "GATE_OPENED"]
+                    self.assertTrue(opened and effects[op]["seq"] < min(opened),
+                                    f"{op}: effect present on open gate not committed before opening")
+                checks["open_gates_effect_absent_or_committed_before_opening"] += 1
         # No effect may be written while its gate was open: walk the audit log per op.
         for op, e in effects.items():
             open_ = False
@@ -527,13 +537,44 @@ class GateCase(unittest.TestCase):
                               "record). Between GATE_OPENED and EFFECT_CONFIRMED the store holds an "
                               "effect for an open gate; no effect was written while it was open.")
             rid = r["witness"]["reservation_id"]
+            # Amendment 001: pre-existing effect during the OPEN interval.
+            effect_of = lambda o: [e for e in self.snap()["effects"] if e["op_id"] == o]  # noqa: E731
+            preexisting = self.observe("a1_preexisting_effect_at_open", effect_of(op))
+            self.assertEqual(len(preexisting), 1)
+            self.assertEqual(self.gate(op)["state"], "OPEN")
+            self.refused("a2_write_while_open_with_preexisting_effect",
+                         lambda: self.write(op, rid, pl), "GATE_OPEN")
             self.refused("authorize_with_existing_effect", lambda: self.reconcile(op, AUTH),
                          "EFFECT_EXISTS")
+            self.assertEqual(effect_of(op), preexisting)
+            self.assertEqual(self.gate(op)["state"], "OPEN")
+            self.classify("a1_preexisting_effect_during_open", "UNCHANGED_GATE_STILL_OPEN")
             cf = self.observe("confirm", self.reconcile(op, "EFFECT_CONFIRMED"))
             self.assertEqual(cf["gate_state"], "CLEARED_CONFIRMED")
             self.classify("confirm", "CLEARED_CONFIRMED")
-            self.refused("write_after_confirm", lambda: self.write(op, rid, pl),
+            self.refused("a3_write_after_confirm", lambda: self.write(op, rid, pl),
                          "CONFIRMED_EFFECT_NO_FURTHER_WRITE")
+            self.assertEqual(effect_of(op), preexisting)
+            self.classify("a3_after_confirm", "SAME_SINGLE_EFFECT_NO_FURTHER_WRITE")
+
+            # A3 negative fixtures: an injected non-matching effect must not let CONFIRMED clear.
+            for fop, field in (("op-ConfMisP", "payload"), ("op-ConfMisR", "reservation")):
+                fpl = ('{"marker":"%s"}' % fop).encode()
+                frid = self.open_gate(fop, fpl)["reservation_id"]
+                db = sqlite3.connect(self.gstore)
+                db.execute("INSERT INTO effects VALUES (?,?,?,'injected','INJECTED_FIXTURE',NULL,0)",
+                           (fop, "R-99999999" if field == "reservation" else frid,
+                            "0" * 64 if field == "payload" else sha256_hex(fpl)))
+                db.commit()
+                db.close()
+                self.injected_fixture_effects.add(fop)
+                self.refused(f"a3_confirm_{field}_mismatched_effect",
+                             lambda fop=fop: self.reconcile(fop, "EFFECT_CONFIRMED"),
+                             "NO_MATCHING_EFFECT")
+                self.assertEqual(self.gate(fop)["state"], "OPEN")
+            self.notes.append("op-ConfMisP / op-ConfMisR carry directly injected effect rows "
+                              "(via=INJECTED_FIXTURE) whose payload hash / reservation ID do not "
+                              "match the gate; they are labeled negative fixtures.")
 
             # AUTHORIZED: at most one effect.
             op, pl = "op-Auth", b'{"marker":"Auth"}'
@@ -559,8 +600,8 @@ class GateCase(unittest.TestCase):
                          "RESERVATION_REVOKED")
             self.assertEqual(self.gate(op)["state"], "CLEARED_AUTHORIZED")
 
-            self.assertEqual(sorted(e["op_id"] for e in self.snap()["effects"]),
-                             ["op-Auth", "op-Conf"])
+            self.assertEqual(sorted(e["op_id"] for e in self.snap()["effects"]
+                                    if e["via"] != "INJECTED_FIXTURE"), ["op-Auth", "op-Conf"])
             self.seal()
         self._guarded(body)
 
