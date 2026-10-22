@@ -49,8 +49,23 @@ python3 -m unittest discover -s tests -v
 ## RS-2 recovery gate
 
 Expectations: [EXPECTATIONS-RS2.md](EXPECTATIONS-RS2.md), frozen in commit `714500a`
-before any RS-2 code. `run_slice.py` runs RS-1 and RS-2 together and now refuses to run
-unless the **whole repository** working tree is clean.
+before any RS-2 code. [AMENDMENT-RS2-001.md](AMENDMENT-RS2-001.md), committed separately in
+`f44328c`, prospectively modifies the RS-2 pass criterion: no new effect may be committed
+while an operation's gate is OPEN, and an effect committed before the gate opened may
+remain present during reconciliation without clearing the gate or permitting another
+effect. The frozen expectations file is not edited. `run_slice.py` runs RS-1 and RS-2
+together and refuses to run unless the **whole repository** working tree is clean.
+
+### RS-2 runs
+
+| Run | Implementation | Criterion evaluated | Result |
+| --- | --- | --- | --- |
+| `evidence/20261022T162032Z-6984de1a2bcf/` | `6984de1` | original frozen criterion | 12/12 tests passed; deviated from the frozen global pass criterion in the documented op-Conf interval. Not relabeled. |
+| `evidence/20261022T162606Z-6337d1d731d0/` | `6337d1d` | frozen expectations as amended by Amendment 001 | 12/12 tests passed, exit 0; the passing RS-2 run under the amended criterion. |
+
+Each bundle's execution is bound to the implementation commit shown; the later commit
+that added the bundle only preserves it. Documentation commits after `6337d1d` make no
+new execution claim.
 
 - `src/rs_slice/writer.py` — effect writer process, the enforcement boundary. It checks
   gate state in the same transaction as the effect write. Identity comes only from the
@@ -75,5 +90,12 @@ RS-2 limits, in addition to RS-1's: credential separation is local (one host, on
 user; the operator can read every credential and store). The writer's revocation check
 is a witness lookup at write time, not atomic with witness revocation. The H2 case
 routes the RS-1 sequence through the writer; the unchanged RS-1 client writing to its
-own local database would bypass the writer and is not tested. Malformed-gate cases use
-state injected directly into the store while the writer is stopped.
+own local database would bypass the writer and is not tested.
+
+Injected negative fixtures (labeled in each case's evidence):
+- Malformed-gate fixtures in `test_g1_fail_closed_gate_states` (`op-bogus`, `op-nobind`,
+  `op-nores`, `op-wrongres`, `op-clientres`) were written directly into the writer store
+  **while the writer was stopped**.
+- Mismatched-effect fixtures in `test_g4_resolution_semantics` (`op-ConfMisP`,
+  `op-ConfMisR`, effect rows marked `INJECTED_FIXTURE`) were written directly into the
+  writer store **while the writer was running**, through a separate SQLite connection.
