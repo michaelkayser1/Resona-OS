@@ -1,0 +1,306 @@
+{
+  "case": "test_recovery_gate.GateCase.test_g3_authenticated_authority",
+  "classifications": [
+    {
+      "classification": "REFUSED_UNAUTHENTICATED_STATE_UNCHANGED",
+      "label": "reconcile_wrong_credential"
+    },
+    {
+      "classification": "REFUSED_UNAUTHENTICATED_STATE_UNCHANGED",
+      "label": "reconcile_no_credential"
+    },
+    {
+      "classification": "REFUSED_UNAUTHORIZED_FOR_RECONCILE_STATE_UNCHANGED",
+      "label": "reconcile_client_credential"
+    },
+    {
+      "classification": "REFUSED_UNEXPECTED_FIELDS:actor_STATE_UNCHANGED",
+      "label": "reconcile_client_credential_claiming_reconciler"
+    },
+    {
+      "classification": "REFUSED_UNEXPECTED_FIELDS:identity_STATE_UNCHANGED",
+      "label": "reconcile_reconciler_credential_with_identity_field"
+    },
+    {
+      "classification": "REFUSED_GATE_OPEN_STATE_UNCHANGED",
+      "label": "client_write_while_open"
+    },
+    {
+      "classification": "RESOLVED_ACTOR_DERIVED_FROM_CREDENTIAL",
+      "label": "reconcile_reconciler_process"
+    }
+  ],
+  "distinct_op_ids_reaching_witness": [
+    "op-Au"
+  ],
+  "failure": null,
+  "injected_malformed_gates": [],
+  "invariant_checks": {
+    "cleared_gates_with_matching_resolution": 1,
+    "effects_not_written_while_gate_open": 0,
+    "open_gates_without_effect": 0
+  },
+  "notes": [],
+  "observations": [
+    {
+      "step": "reconcile_wrong_credential",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "UNAUTHENTICATED"
+      }
+    },
+    {
+      "step": "reconcile_no_credential",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "UNAUTHENTICATED"
+      }
+    },
+    {
+      "step": "reconcile_client_credential",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "UNAUTHORIZED_FOR_RECONCILE"
+      }
+    },
+    {
+      "step": "reconcile_client_credential_claiming_reconciler",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "UNEXPECTED_FIELDS:actor"
+      }
+    },
+    {
+      "step": "reconcile_reconciler_credential_with_identity_field",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "UNEXPECTED_FIELDS:identity"
+      }
+    },
+    {
+      "step": "client_write_while_open",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "GATE_OPEN"
+      }
+    },
+    {
+      "step": "reconcile_reconciler_process",
+      "value": {
+        "actor": "reconciler",
+        "decision": "RESOLVED",
+        "gate_state": "CLEARED_AUTHORIZED",
+        "outcome": "EFFECT_ABSENT_AUTHORIZED_TO_PROCEED",
+        "resolution_id": 1
+      }
+    }
+  ],
+  "status": "PASS",
+  "transcript": [
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.server",
+        "--db",
+        "/tmp/rs2-g8r4cta1/witness.sqlite",
+        "--socket",
+        "/tmp/rs2-g8r4cta1/witness.sock"
+      ],
+      "event": "spawned",
+      "pid": 722,
+      "proc": "witness#1"
+    },
+    {
+      "proc": "witness#1",
+      "stdout": "READY {\"db\": \"/tmp/rs2-g8r4cta1/witness.sqlite\", \"pid\": 722}"
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.writer",
+        "--db",
+        "/tmp/rs2-g8r4cta1/writer.sqlite",
+        "--socket",
+        "/tmp/rs2-g8r4cta1/writer.sock",
+        "--witness-socket",
+        "/tmp/rs2-g8r4cta1/witness.sock",
+        "--credentials",
+        "/tmp/rs2-g8r4cta1/credentials.json"
+      ],
+      "event": "spawned",
+      "pid": 723,
+      "proc": "writer#1"
+    },
+    {
+      "proc": "writer#1",
+      "stdout": "READY {\"db\": \"/tmp/rs2-g8r4cta1/writer.sqlite\", \"pid\": 723}"
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.gated",
+        "--witness-socket",
+        "/tmp/rs2-g8r4cta1/witness.sock",
+        "--writer-socket",
+        "/tmp/rs2-g8r4cta1/writer.sock",
+        "--local-db",
+        "/tmp/rs2-g8r4cta1/local-effects.sqlite",
+        "reconcile",
+        "--op-id",
+        "op-Au",
+        "--outcome",
+        "EFFECT_ABSENT_AUTHORIZED_TO_PROCEED",
+        "--evidence",
+        "{\"basis\":\"harness reconciler process\"}"
+      ],
+      "event": "spawned",
+      "pid": 724,
+      "proc": "gated#1"
+    },
+    {
+      "proc": "gated#1",
+      "stdout": "RECONCILE {\"actor\": \"reconciler\", \"decision\": \"RESOLVED\", \"gate_state\": \"CLEARED_AUTHORIZED\", \"outcome\": \"EFFECT_ABSENT_AUTHORIZED_TO_PROCEED\", \"resolution_id\": 1}"
+    },
+    {
+      "event": "exited",
+      "proc": "gated#1",
+      "returncode": 0
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "witness#1",
+      "returncode": -9
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "writer#1",
+      "returncode": -9
+    }
+  ],
+  "witness_records": {
+    "events": [
+      {
+        "kind": "RESERVED",
+        "op_id": "op-Au",
+        "payload_sha256": "3984c4ab7de8c567ed535c59fa274924084bad686a9ea0e50786e5978be4397c",
+        "reservation_id": "R-00000001",
+        "seq": 1
+      }
+    ],
+    "integrity_check": "ok",
+    "reservation_count": 1,
+    "reservations": [
+      {
+        "created_seq": 1,
+        "op_id": "op-Au",
+        "payload_sha256": "3984c4ab7de8c567ed535c59fa274924084bad686a9ea0e50786e5978be4397c",
+        "reservation_id": "R-00000001",
+        "revoked_seq": null,
+        "status": "ACTIVE"
+      }
+    ],
+    "reservations_per_op_id": {
+      "op-Au": 1
+    },
+    "reserved_events_per_op_id": {
+      "op-Au": 1
+    }
+  },
+  "writer_records": {
+    "audit": [
+      {
+        "actor": "client",
+        "decision": "GATE_OPENED",
+        "op": "mark_unresolved",
+        "op_id": "op-Au",
+        "reason": null,
+        "seq": 1
+      },
+      {
+        "actor": null,
+        "decision": "REFUSED",
+        "op": "reconcile",
+        "op_id": "op-Au",
+        "reason": "UNAUTHENTICATED",
+        "seq": 2
+      },
+      {
+        "actor": null,
+        "decision": "REFUSED",
+        "op": "reconcile",
+        "op_id": "op-Au",
+        "reason": "UNAUTHENTICATED",
+        "seq": 3
+      },
+      {
+        "actor": "client",
+        "decision": "REFUSED",
+        "op": "reconcile",
+        "op_id": "op-Au",
+        "reason": "UNAUTHORIZED_FOR_RECONCILE",
+        "seq": 4
+      },
+      {
+        "actor": "client",
+        "decision": "REFUSED",
+        "op": "reconcile",
+        "op_id": "op-Au",
+        "reason": "UNEXPECTED_FIELDS:actor",
+        "seq": 5
+      },
+      {
+        "actor": "reconciler",
+        "decision": "REFUSED",
+        "op": "reconcile",
+        "op_id": "op-Au",
+        "reason": "UNEXPECTED_FIELDS:identity",
+        "seq": 6
+      },
+      {
+        "actor": "client",
+        "decision": "REFUSED",
+        "op": "write",
+        "op_id": "op-Au",
+        "reason": "GATE_OPEN",
+        "seq": 7
+      },
+      {
+        "actor": "reconciler",
+        "decision": "RESOLVED",
+        "op": "reconcile",
+        "op_id": "op-Au",
+        "reason": null,
+        "seq": 8
+      }
+    ],
+    "effects": [],
+    "gates": [
+      {
+        "attempt_digest": null,
+        "op_id": "op-Au",
+        "payload_sha256": "3984c4ab7de8c567ed535c59fa274924084bad686a9ea0e50786e5978be4397c",
+        "reservation_id": "R-00000001",
+        "resolution_id": 1,
+        "state": "CLEARED_AUTHORIZED",
+        "updated_seq": 8
+      }
+    ],
+    "integrity_check": "ok",
+    "resolutions": [
+      {
+        "actor": "reconciler",
+        "credential_fingerprint": "0ff5a738872a9973",
+        "evidence": "{\"basis\": \"harness reconciler process\"}",
+        "id": 1,
+        "op_id": "op-Au",
+        "outcome": "EFFECT_ABSENT_AUTHORIZED_TO_PROCEED",
+        "payload_sha256": "3984c4ab7de8c567ed535c59fa274924084bad686a9ea0e50786e5978be4397c",
+        "reservation_id": "R-00000001",
+        "seq": 8
+      }
+    ]
+  }
+}

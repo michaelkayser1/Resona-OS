@@ -1,0 +1,539 @@
+{
+  "case": "test_recovery_gate.GateCase.test_g5_sigkill_at_reconcile_commit_hooks",
+  "classifications": [
+    {
+      "classification": "GATE_OPEN_NO_RESOLUTION",
+      "label": "pre_reconcile_commit"
+    },
+    {
+      "classification": "REFUSED_GATE_OPEN_STATE_UNCHANGED",
+      "label": "write_after_pre_commit_crash"
+    },
+    {
+      "classification": "CLEARED_WITH_COMPLETE_AUTHENTICATED_RESOLUTION",
+      "label": "post_reconcile_commit"
+    },
+    {
+      "classification": "REFUSED_ALREADY_WRITTEN_STATE_UNCHANGED",
+      "label": "second_write_after_post_commit_crash"
+    }
+  ],
+  "distinct_op_ids_reaching_witness": [
+    "op-Post",
+    "op-Pre"
+  ],
+  "failure": null,
+  "injected_malformed_gates": [],
+  "invariant_checks": {
+    "cleared_gates_with_matching_resolution": 1,
+    "effects_not_written_while_gate_open": 1,
+    "open_gates_without_effect": 1
+  },
+  "notes": [],
+  "observations": [
+    {
+      "step": "pre_reconcile_commit_hook",
+      "value": {
+        "op_id": "op-Pre",
+        "point": "pre_reconcile_commit",
+        "response": {
+          "actor": "reconciler",
+          "decision": "RESOLVED",
+          "gate_state": "CLEARED_AUTHORIZED",
+          "outcome": "EFFECT_ABSENT_AUTHORIZED_TO_PROCEED",
+          "resolution_id": 1
+        }
+      }
+    },
+    {
+      "step": "pre_reconcile_commit_writer_sigkill_rc",
+      "value": -9
+    },
+    {
+      "step": "pre_reconcile_commit_state_after_restart",
+      "value": {
+        "decision": "STATE",
+        "effect": null,
+        "gate": {
+          "op_id": "op-Pre",
+          "payload_sha256": "90754c60529642ddd61a9db4dd525d4eb1d286a2b9833db25337e304e02461fe",
+          "reservation_id": "R-00000001",
+          "resolution_id": null,
+          "state": "OPEN"
+        }
+      }
+    },
+    {
+      "step": "write_after_pre_commit_crash",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "GATE_OPEN"
+      }
+    },
+    {
+      "step": "post_reconcile_commit_passed_hook",
+      "value": {
+        "op_id": "op-Post",
+        "point": "pre_reconcile_commit",
+        "response": {
+          "actor": "reconciler",
+          "decision": "RESOLVED",
+          "gate_state": "CLEARED_AUTHORIZED",
+          "outcome": "EFFECT_ABSENT_AUTHORIZED_TO_PROCEED",
+          "resolution_id": 1
+        }
+      }
+    },
+    {
+      "step": "post_reconcile_commit_hook",
+      "value": {
+        "op_id": "op-Post",
+        "point": "post_reconcile_commit",
+        "response": {
+          "actor": "reconciler",
+          "decision": "RESOLVED",
+          "gate_state": "CLEARED_AUTHORIZED",
+          "outcome": "EFFECT_ABSENT_AUTHORIZED_TO_PROCEED",
+          "resolution_id": 1
+        }
+      }
+    },
+    {
+      "step": "post_reconcile_commit_writer_sigkill_rc",
+      "value": -9
+    },
+    {
+      "step": "post_reconcile_commit_state_after_restart",
+      "value": {
+        "decision": "STATE",
+        "effect": null,
+        "gate": {
+          "op_id": "op-Post",
+          "payload_sha256": "44c95dbd12cfcb135d48b2eaba8282a2392250d1d2b04693946f7347bbed61c6",
+          "reservation_id": "R-00000002",
+          "resolution_id": 1,
+          "state": "CLEARED_AUTHORIZED"
+        }
+      }
+    },
+    {
+      "step": "write_after_post_commit_crash",
+      "value": {
+        "decision": "WRITTEN",
+        "resolution_id": 1,
+        "via": "AUTHORIZED_RESOLUTION"
+      }
+    },
+    {
+      "step": "second_write_after_post_commit_crash",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "ALREADY_WRITTEN"
+      }
+    }
+  ],
+  "status": "PASS",
+  "transcript": [
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.server",
+        "--db",
+        "/tmp/rs2-1gbuq7jn/witness.sqlite",
+        "--socket",
+        "/tmp/rs2-1gbuq7jn/witness.sock"
+      ],
+      "event": "spawned",
+      "pid": 729,
+      "proc": "witness#1"
+    },
+    {
+      "proc": "witness#1",
+      "stdout": "READY {\"db\": \"/tmp/rs2-1gbuq7jn/witness.sqlite\", \"pid\": 729}"
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.writer",
+        "--db",
+        "/tmp/rs2-1gbuq7jn/writer.sqlite",
+        "--socket",
+        "/tmp/rs2-1gbuq7jn/writer.sock",
+        "--witness-socket",
+        "/tmp/rs2-1gbuq7jn/witness.sock",
+        "--credentials",
+        "/tmp/rs2-1gbuq7jn/credentials.json"
+      ],
+      "event": "spawned",
+      "pid": 730,
+      "proc": "writer#1"
+    },
+    {
+      "proc": "writer#1",
+      "stdout": "READY {\"db\": \"/tmp/rs2-1gbuq7jn/writer.sqlite\", \"pid\": 730}"
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "writer#1",
+      "returncode": -9
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.writer",
+        "--db",
+        "/tmp/rs2-1gbuq7jn/writer.sqlite",
+        "--socket",
+        "/tmp/rs2-1gbuq7jn/writer.sock",
+        "--witness-socket",
+        "/tmp/rs2-1gbuq7jn/witness.sock",
+        "--credentials",
+        "/tmp/rs2-1gbuq7jn/credentials.json",
+        "--hold-at",
+        "pre_reconcile_commit"
+      ],
+      "event": "spawned",
+      "pid": 731,
+      "proc": "writer#2"
+    },
+    {
+      "proc": "writer#2",
+      "stdout": "READY {\"db\": \"/tmp/rs2-1gbuq7jn/writer.sqlite\", \"pid\": 731}"
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.gated",
+        "--witness-socket",
+        "/tmp/rs2-1gbuq7jn/witness.sock",
+        "--writer-socket",
+        "/tmp/rs2-1gbuq7jn/writer.sock",
+        "--local-db",
+        "/tmp/rs2-1gbuq7jn/local-effects.sqlite",
+        "reconcile",
+        "--op-id",
+        "op-Pre",
+        "--outcome",
+        "EFFECT_ABSENT_AUTHORIZED_TO_PROCEED"
+      ],
+      "event": "spawned",
+      "pid": 732,
+      "proc": "gated#1"
+    },
+    {
+      "proc": "writer#2",
+      "stdout": "HOOK {\"op_id\": \"op-Pre\", \"point\": \"pre_reconcile_commit\", \"response\": {\"actor\": \"reconciler\", \"decision\": \"RESOLVED\", \"gate_state\": \"CLEARED_AUTHORIZED\", \"outcome\": \"EFFECT_ABSENT_AUTHORIZED_TO_PROCEED\", \"resolution_id\": 1}}"
+    },
+    {
+      "proc": "writer#2",
+      "stdout": "HOLDING {\"point\": \"pre_reconcile_commit\"}"
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "writer#2",
+      "returncode": -9
+    },
+    {
+      "proc": "gated#1",
+      "stdout": "RESPONSE_LOST {\"detail\": \"connection closed before a complete response\", \"op_id\": \"op-Pre\"}"
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "gated#1",
+      "returncode": -9
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.writer",
+        "--db",
+        "/tmp/rs2-1gbuq7jn/writer.sqlite",
+        "--socket",
+        "/tmp/rs2-1gbuq7jn/writer.sock",
+        "--witness-socket",
+        "/tmp/rs2-1gbuq7jn/witness.sock",
+        "--credentials",
+        "/tmp/rs2-1gbuq7jn/credentials.json"
+      ],
+      "event": "spawned",
+      "pid": 733,
+      "proc": "writer#3"
+    },
+    {
+      "proc": "writer#3",
+      "stdout": "READY {\"db\": \"/tmp/rs2-1gbuq7jn/writer.sqlite\", \"pid\": 733}"
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "writer#3",
+      "returncode": -9
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.writer",
+        "--db",
+        "/tmp/rs2-1gbuq7jn/writer.sqlite",
+        "--socket",
+        "/tmp/rs2-1gbuq7jn/writer.sock",
+        "--witness-socket",
+        "/tmp/rs2-1gbuq7jn/witness.sock",
+        "--credentials",
+        "/tmp/rs2-1gbuq7jn/credentials.json",
+        "--hold-at",
+        "post_reconcile_commit"
+      ],
+      "event": "spawned",
+      "pid": 734,
+      "proc": "writer#4"
+    },
+    {
+      "proc": "writer#4",
+      "stdout": "READY {\"db\": \"/tmp/rs2-1gbuq7jn/writer.sqlite\", \"pid\": 734}"
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.gated",
+        "--witness-socket",
+        "/tmp/rs2-1gbuq7jn/witness.sock",
+        "--writer-socket",
+        "/tmp/rs2-1gbuq7jn/writer.sock",
+        "--local-db",
+        "/tmp/rs2-1gbuq7jn/local-effects.sqlite",
+        "reconcile",
+        "--op-id",
+        "op-Post",
+        "--outcome",
+        "EFFECT_ABSENT_AUTHORIZED_TO_PROCEED"
+      ],
+      "event": "spawned",
+      "pid": 735,
+      "proc": "gated#2"
+    },
+    {
+      "proc": "writer#4",
+      "stdout": "HOOK {\"op_id\": \"op-Post\", \"point\": \"pre_reconcile_commit\", \"response\": {\"actor\": \"reconciler\", \"decision\": \"RESOLVED\", \"gate_state\": \"CLEARED_AUTHORIZED\", \"outcome\": \"EFFECT_ABSENT_AUTHORIZED_TO_PROCEED\", \"resolution_id\": 1}}"
+    },
+    {
+      "proc": "writer#4",
+      "stdout": "HOOK {\"op_id\": \"op-Post\", \"point\": \"post_reconcile_commit\", \"response\": {\"actor\": \"reconciler\", \"decision\": \"RESOLVED\", \"gate_state\": \"CLEARED_AUTHORIZED\", \"outcome\": \"EFFECT_ABSENT_AUTHORIZED_TO_PROCEED\", \"resolution_id\": 1}}"
+    },
+    {
+      "proc": "writer#4",
+      "stdout": "HOLDING {\"point\": \"post_reconcile_commit\"}"
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "writer#4",
+      "returncode": -9
+    },
+    {
+      "proc": "gated#2",
+      "stdout": "RESPONSE_LOST {\"detail\": \"connection closed before a complete response\", \"op_id\": \"op-Post\"}"
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "gated#2",
+      "returncode": -9
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.writer",
+        "--db",
+        "/tmp/rs2-1gbuq7jn/writer.sqlite",
+        "--socket",
+        "/tmp/rs2-1gbuq7jn/writer.sock",
+        "--witness-socket",
+        "/tmp/rs2-1gbuq7jn/witness.sock",
+        "--credentials",
+        "/tmp/rs2-1gbuq7jn/credentials.json"
+      ],
+      "event": "spawned",
+      "pid": 736,
+      "proc": "writer#5"
+    },
+    {
+      "proc": "writer#5",
+      "stdout": "READY {\"db\": \"/tmp/rs2-1gbuq7jn/writer.sqlite\", \"pid\": 736}"
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "witness#1",
+      "returncode": -9
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "writer#5",
+      "returncode": -9
+    }
+  ],
+  "witness_records": {
+    "events": [
+      {
+        "kind": "RESERVED",
+        "op_id": "op-Pre",
+        "payload_sha256": "90754c60529642ddd61a9db4dd525d4eb1d286a2b9833db25337e304e02461fe",
+        "reservation_id": "R-00000001",
+        "seq": 1
+      },
+      {
+        "kind": "RESERVED",
+        "op_id": "op-Post",
+        "payload_sha256": "44c95dbd12cfcb135d48b2eaba8282a2392250d1d2b04693946f7347bbed61c6",
+        "reservation_id": "R-00000002",
+        "seq": 2
+      }
+    ],
+    "integrity_check": "ok",
+    "reservation_count": 2,
+    "reservations": [
+      {
+        "created_seq": 1,
+        "op_id": "op-Pre",
+        "payload_sha256": "90754c60529642ddd61a9db4dd525d4eb1d286a2b9833db25337e304e02461fe",
+        "reservation_id": "R-00000001",
+        "revoked_seq": null,
+        "status": "ACTIVE"
+      },
+      {
+        "created_seq": 2,
+        "op_id": "op-Post",
+        "payload_sha256": "44c95dbd12cfcb135d48b2eaba8282a2392250d1d2b04693946f7347bbed61c6",
+        "reservation_id": "R-00000002",
+        "revoked_seq": null,
+        "status": "ACTIVE"
+      }
+    ],
+    "reservations_per_op_id": {
+      "op-Post": 1,
+      "op-Pre": 1
+    },
+    "reserved_events_per_op_id": {
+      "op-Post": 1,
+      "op-Pre": 1
+    }
+  },
+  "writer_records": {
+    "audit": [
+      {
+        "actor": "client",
+        "decision": "GATE_OPENED",
+        "op": "mark_unresolved",
+        "op_id": "op-Pre",
+        "reason": null,
+        "seq": 1
+      },
+      {
+        "actor": "client",
+        "decision": "GATE_OPENED",
+        "op": "mark_unresolved",
+        "op_id": "op-Post",
+        "reason": null,
+        "seq": 2
+      },
+      {
+        "actor": "client",
+        "decision": "STATE",
+        "op": "state",
+        "op_id": "op-Pre",
+        "reason": null,
+        "seq": 3
+      },
+      {
+        "actor": "client",
+        "decision": "REFUSED",
+        "op": "write",
+        "op_id": "op-Pre",
+        "reason": "GATE_OPEN",
+        "seq": 4
+      },
+      {
+        "actor": "reconciler",
+        "decision": "RESOLVED",
+        "op": "reconcile",
+        "op_id": "op-Post",
+        "reason": null,
+        "seq": 5
+      },
+      {
+        "actor": "client",
+        "decision": "STATE",
+        "op": "state",
+        "op_id": "op-Post",
+        "reason": null,
+        "seq": 6
+      },
+      {
+        "actor": "client",
+        "decision": "WRITTEN",
+        "op": "write",
+        "op_id": "op-Post",
+        "reason": null,
+        "seq": 7
+      },
+      {
+        "actor": "client",
+        "decision": "REFUSED",
+        "op": "write",
+        "op_id": "op-Post",
+        "reason": "ALREADY_WRITTEN",
+        "seq": 8
+      }
+    ],
+    "effects": [
+      {
+        "actor": "client",
+        "op_id": "op-Post",
+        "payload_sha256": "44c95dbd12cfcb135d48b2eaba8282a2392250d1d2b04693946f7347bbed61c6",
+        "reservation_id": "R-00000002",
+        "resolution_id": 1,
+        "seq": 7,
+        "via": "AUTHORIZED_RESOLUTION"
+      }
+    ],
+    "gates": [
+      {
+        "attempt_digest": null,
+        "op_id": "op-Post",
+        "payload_sha256": "44c95dbd12cfcb135d48b2eaba8282a2392250d1d2b04693946f7347bbed61c6",
+        "reservation_id": "R-00000002",
+        "resolution_id": 1,
+        "state": "CONSUMED",
+        "updated_seq": 7
+      },
+      {
+        "attempt_digest": null,
+        "op_id": "op-Pre",
+        "payload_sha256": "90754c60529642ddd61a9db4dd525d4eb1d286a2b9833db25337e304e02461fe",
+        "reservation_id": "R-00000001",
+        "resolution_id": null,
+        "state": "OPEN",
+        "updated_seq": 1
+      }
+    ],
+    "integrity_check": "ok",
+    "resolutions": [
+      {
+        "actor": "reconciler",
+        "credential_fingerprint": "c29fe4351e586ade",
+        "evidence": "{}",
+        "id": 1,
+        "op_id": "op-Post",
+        "outcome": "EFFECT_ABSENT_AUTHORIZED_TO_PROCEED",
+        "payload_sha256": "44c95dbd12cfcb135d48b2eaba8282a2392250d1d2b04693946f7347bbed61c6",
+        "reservation_id": "R-00000002",
+        "seq": 5
+      }
+    ]
+  }
+}

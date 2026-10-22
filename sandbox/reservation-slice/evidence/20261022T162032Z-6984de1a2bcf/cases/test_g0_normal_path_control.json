@@ -1,0 +1,212 @@
+{
+  "case": "test_recovery_gate.GateCase.test_g0_normal_path_control",
+  "classifications": [
+    {
+      "classification": "WRITTEN_VIA_ATTEMPT",
+      "label": "normal_path"
+    },
+    {
+      "classification": "REFUSED_ALREADY_WRITTEN_STATE_UNCHANGED",
+      "label": "second_write_same_op"
+    }
+  ],
+  "distinct_op_ids_reaching_witness": [
+    "op-N"
+  ],
+  "failure": null,
+  "injected_malformed_gates": [],
+  "invariant_checks": {
+    "cleared_gates_with_matching_resolution": 0,
+    "effects_not_written_while_gate_open": 1,
+    "open_gates_without_effect": 0
+  },
+  "notes": [],
+  "observations": [
+    {
+      "step": "normal_write",
+      "value": {
+        "decision": "WRITTEN",
+        "via": "ATTEMPT"
+      }
+    },
+    {
+      "step": "second_write_same_op",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "ALREADY_WRITTEN"
+      }
+    }
+  ],
+  "status": "PASS",
+  "transcript": [
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.server",
+        "--db",
+        "/tmp/rs2-2cdmr2p6/witness.sqlite",
+        "--socket",
+        "/tmp/rs2-2cdmr2p6/witness.sock"
+      ],
+      "event": "spawned",
+      "pid": 711,
+      "proc": "witness#1"
+    },
+    {
+      "proc": "witness#1",
+      "stdout": "READY {\"db\": \"/tmp/rs2-2cdmr2p6/witness.sqlite\", \"pid\": 711}"
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.writer",
+        "--db",
+        "/tmp/rs2-2cdmr2p6/writer.sqlite",
+        "--socket",
+        "/tmp/rs2-2cdmr2p6/writer.sock",
+        "--witness-socket",
+        "/tmp/rs2-2cdmr2p6/witness.sock",
+        "--credentials",
+        "/tmp/rs2-2cdmr2p6/credentials.json"
+      ],
+      "event": "spawned",
+      "pid": 712,
+      "proc": "writer#1"
+    },
+    {
+      "proc": "writer#1",
+      "stdout": "READY {\"db\": \"/tmp/rs2-2cdmr2p6/writer.sqlite\", \"pid\": 712}"
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.gated",
+        "--witness-socket",
+        "/tmp/rs2-2cdmr2p6/witness.sock",
+        "--writer-socket",
+        "/tmp/rs2-2cdmr2p6/writer.sock",
+        "--local-db",
+        "/tmp/rs2-2cdmr2p6/local-effects.sqlite",
+        "run",
+        "--op-id",
+        "op-N",
+        "--payload-b64",
+        "eyJtYXJrZXIiOiJOIiwidiI6MX0="
+      ],
+      "event": "spawned",
+      "pid": 713,
+      "proc": "gated#1"
+    },
+    {
+      "proc": "gated#1",
+      "stdout": "REGISTER {\"attempt_credential\": \"01a725f07e4770784d77371bf9271a34dc61bb55f71eba07172f3755dec5325b\", \"decision\": \"ATTEMPT_REGISTERED\"}"
+    },
+    {
+      "proc": "gated#1",
+      "stdout": "RESERVE {\"op_id\": \"op-N\", \"outcome\": \"RESERVED\", \"payload_sha256\": \"ab54deb4df492cc97b7fd6d9e74028e407cd3d81094120471e0cebb1462dbba1\", \"reservation_id\": \"R-00000001\", \"status\": \"ACTIVE\"}"
+    },
+    {
+      "proc": "gated#1",
+      "stdout": "WRITE {\"decision\": \"WRITTEN\", \"via\": \"ATTEMPT\"}"
+    },
+    {
+      "event": "exited",
+      "proc": "gated#1",
+      "returncode": 0
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "witness#1",
+      "returncode": -9
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "writer#1",
+      "returncode": -9
+    }
+  ],
+  "witness_records": {
+    "events": [
+      {
+        "kind": "RESERVED",
+        "op_id": "op-N",
+        "payload_sha256": "ab54deb4df492cc97b7fd6d9e74028e407cd3d81094120471e0cebb1462dbba1",
+        "reservation_id": "R-00000001",
+        "seq": 1
+      }
+    ],
+    "integrity_check": "ok",
+    "reservation_count": 1,
+    "reservations": [
+      {
+        "created_seq": 1,
+        "op_id": "op-N",
+        "payload_sha256": "ab54deb4df492cc97b7fd6d9e74028e407cd3d81094120471e0cebb1462dbba1",
+        "reservation_id": "R-00000001",
+        "revoked_seq": null,
+        "status": "ACTIVE"
+      }
+    ],
+    "reservations_per_op_id": {
+      "op-N": 1
+    },
+    "reserved_events_per_op_id": {
+      "op-N": 1
+    }
+  },
+  "writer_records": {
+    "audit": [
+      {
+        "actor": "client",
+        "decision": "ATTEMPT_REGISTERED",
+        "op": "register_attempt",
+        "op_id": "op-N",
+        "reason": null,
+        "seq": 1
+      },
+      {
+        "actor": "client",
+        "decision": "WRITTEN",
+        "op": "write",
+        "op_id": "op-N",
+        "reason": null,
+        "seq": 2
+      },
+      {
+        "actor": "client",
+        "decision": "REFUSED",
+        "op": "write",
+        "op_id": "op-N",
+        "reason": "ALREADY_WRITTEN",
+        "seq": 3
+      }
+    ],
+    "effects": [
+      {
+        "actor": "client",
+        "op_id": "op-N",
+        "payload_sha256": "ab54deb4df492cc97b7fd6d9e74028e407cd3d81094120471e0cebb1462dbba1",
+        "reservation_id": "R-00000001",
+        "resolution_id": null,
+        "seq": 2,
+        "via": "ATTEMPT"
+      }
+    ],
+    "gates": [
+      {
+        "attempt_digest": null,
+        "op_id": "op-N",
+        "payload_sha256": "ab54deb4df492cc97b7fd6d9e74028e407cd3d81094120471e0cebb1462dbba1",
+        "reservation_id": "R-00000001",
+        "resolution_id": null,
+        "state": "WRITTEN",
+        "updated_seq": 2
+      }
+    ],
+    "integrity_check": "ok",
+    "resolutions": []
+  }
+}

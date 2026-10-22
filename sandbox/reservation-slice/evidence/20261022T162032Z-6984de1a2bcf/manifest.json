@@ -1,0 +1,511 @@
+{
+  "branch": "review/recovery-gate-slice",
+  "cases_recorded": 11,
+  "cleanliness_scope": "whole repository (git status --porcelain --untracked-files=all -- :/)",
+  "commands": {
+    "runner": "cd sandbox/reservation-slice && python3 run_slice.py",
+    "suite": "python3 -m unittest discover -s tests -v",
+    "suite_env": {
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "RS_EVIDENCE_DIR": "evidence/<run_id>/cases"
+    }
+  },
+  "commit": "6984de1a2bcf2d6b24b460c05485148ce7bec65d",
+  "environment": {
+    "kernel": "6.18.44-fc-v140",
+    "machine": "x86_64",
+    "platform": "Linux-6.18.44-fc-v140-x86_64-with-glibc2.39",
+    "python": "3.13.16 (main, Oct  1 2026, 15:40:24) [GCC 13.3.0]",
+    "sqlite": "3.45.1"
+  },
+  "evidence_class": "local engineering evidence: RS-1 reservation protocol and RS-2 recovery-gate enforcement under the tested conditions; not an acceptance run; Gate A and Gate B unchanged",
+  "expectations_blob_sha1": {
+    "EXPECTATIONS-RS2.md": "12d0e920efb3ee2f4452657dfd1958704cc0972e",
+    "EXPECTATIONS.md": "3c00f4170070d30ba2922f6a51a82ddb3c499399"
+  },
+  "finished_utc": "2026-10-22T16:20:35.107368+00:00",
+  "note": "StoreGuards is a direct-SQL schema check and writes no case file; its result is in unittest.stdout.txt / unittest.stderr.txt.",
+  "per_case": {
+    "test_e1_same_op_id_different_bytes_conflicts": {
+      "classifications": [
+        {
+          "classification": "IDEMPOTENCY_CONFLICT",
+          "label": "changed_value"
+        },
+        {
+          "classification": "IDEMPOTENCY_CONFLICT",
+          "label": "whitespace_only"
+        },
+        {
+          "classification": "IDEMPOTENCY_CONFLICT",
+          "label": "trailing_newline"
+        },
+        {
+          "classification": "REPLAYED_SAME_RESERVATION",
+          "label": "same_bytes_after_conflicts"
+        }
+      ],
+      "distinct_op_ids_reaching_witness": [
+        "op-B"
+      ],
+      "invariant_checks": null,
+      "reservation_count": 1,
+      "reservations_per_op_id": {
+        "op-B": 1
+      },
+      "reserved_events_per_op_id": {
+        "op-B": 1
+      },
+      "status": "PASS",
+      "writer_counts": null
+    },
+    "test_e2_revocation_aware_retry": {
+      "classifications": [
+        {
+          "classification": "REPLAYED_ORIGINAL_IDENTITY_STATUS_REVOKED",
+          "label": "retry_after_revoke"
+        },
+        {
+          "classification": "IDEMPOTENCY_CONFLICT",
+          "label": "different_bytes_after_revoke"
+        },
+        {
+          "classification": "REPLAYED_ORIGINAL_IDENTITY_STATUS_REVOKED",
+          "label": "retry_after_restart"
+        }
+      ],
+      "distinct_op_ids_reaching_witness": [
+        "op-D"
+      ],
+      "invariant_checks": null,
+      "reservation_count": 1,
+      "reservations_per_op_id": {
+        "op-D": 1
+      },
+      "reserved_events_per_op_id": {
+        "op-D": 1
+      },
+      "status": "PASS",
+      "writer_counts": null
+    },
+    "test_e3_sigkill_restart_recovery": {
+      "classifications": [
+        {
+          "classification": "WITNESS_PERSISTED_LOCAL_EFFECT_UNRESOLVED",
+          "label": "recovery_after_restart"
+        },
+        {
+          "classification": "NO_WITNESS_RESERVATION_LOCAL_EFFECT_ABSENT",
+          "label": "control_recovery"
+        },
+        {
+          "classification": "REPLAYED_SAME_RESERVATION",
+          "label": "retry_after_restart"
+        }
+      ],
+      "distinct_op_ids_reaching_witness": [
+        "op-C"
+      ],
+      "invariant_checks": null,
+      "reservation_count": 1,
+      "reservations_per_op_id": {
+        "op-C": 1
+      },
+      "reserved_events_per_op_id": {
+        "op-C": 1
+      },
+      "status": "PASS",
+      "writer_counts": null
+    },
+    "test_e4_response_loss_then_idempotent_retry": {
+      "classifications": [
+        {
+          "classification": "RESPONSE_LOST",
+          "label": "first_attempt"
+        },
+        {
+          "classification": "REPLAYED_SAME_RESERVATION",
+          "label": "retry"
+        }
+      ],
+      "distinct_op_ids_reaching_witness": [
+        "op-A"
+      ],
+      "invariant_checks": null,
+      "reservation_count": 1,
+      "reservations_per_op_id": {
+        "op-A": 1
+      },
+      "reserved_events_per_op_id": {
+        "op-A": 1
+      },
+      "status": "PASS",
+      "writer_counts": null
+    },
+    "test_g0_normal_path_control": {
+      "classifications": [
+        {
+          "classification": "WRITTEN_VIA_ATTEMPT",
+          "label": "normal_path"
+        },
+        {
+          "classification": "REFUSED_ALREADY_WRITTEN_STATE_UNCHANGED",
+          "label": "second_write_same_op"
+        }
+      ],
+      "distinct_op_ids_reaching_witness": [
+        "op-N"
+      ],
+      "invariant_checks": {
+        "cleared_gates_with_matching_resolution": 0,
+        "effects_not_written_while_gate_open": 1,
+        "open_gates_without_effect": 0
+      },
+      "reservation_count": 1,
+      "reservations_per_op_id": {
+        "op-N": 1
+      },
+      "reserved_events_per_op_id": {
+        "op-N": 1
+      },
+      "status": "PASS",
+      "writer_counts": {
+        "effects": 1,
+        "gates": 1,
+        "resolutions": 0
+      }
+    },
+    "test_g1_fail_closed_gate_states": {
+      "classifications": [
+        {
+          "classification": "REFUSED_GATE_MISSING_STATE_UNCHANGED",
+          "label": "write_op-miss"
+        },
+        {
+          "classification": "REFUSED_GATE_MALFORMED_STATE_STATE_UNCHANGED",
+          "label": "write_op-bogus"
+        },
+        {
+          "classification": "REFUSED_GATE_MALFORMED_BINDING_STATE_UNCHANGED",
+          "label": "write_op-nobind"
+        },
+        {
+          "classification": "REFUSED_GATE_MALFORMED_CLEARED_WITHOUT_MATCHING_RESOLUTION_STATE_UNCHANGED",
+          "label": "write_op-nores"
+        },
+        {
+          "classification": "REFUSED_GATE_MALFORMED_CLEARED_WITHOUT_MATCHING_RESOLUTION_STATE_UNCHANGED",
+          "label": "write_op-wrongres"
+        },
+        {
+          "classification": "REFUSED_GATE_MALFORMED_CLEARED_WITHOUT_MATCHING_RESOLUTION_STATE_UNCHANGED",
+          "label": "write_op-clientres"
+        },
+        {
+          "classification": "REFUSED_GATE_MISMATCH_PAYLOAD_STATE_UNCHANGED",
+          "label": "write_op-mmp_other_payload"
+        },
+        {
+          "classification": "REFUSED_GATE_MISMATCH_RESERVATION_STATE_UNCHANGED",
+          "label": "write_op-mmr_wrong_rid"
+        },
+        {
+          "classification": "WRITTEN_ONCE_VIA_AUTHORIZED",
+          "label": "write_op-mmr_correct_after_mismatch"
+        }
+      ],
+      "distinct_op_ids_reaching_witness": [
+        "op-bogus",
+        "op-clientres",
+        "op-miss",
+        "op-mmp",
+        "op-mmr",
+        "op-nobind",
+        "op-nores",
+        "op-wrongres"
+      ],
+      "invariant_checks": {
+        "cleared_gates_with_matching_resolution": 1,
+        "effects_not_written_while_gate_open": 1,
+        "open_gates_without_effect": 0
+      },
+      "reservation_count": 8,
+      "reservations_per_op_id": {
+        "op-bogus": 1,
+        "op-clientres": 1,
+        "op-miss": 1,
+        "op-mmp": 1,
+        "op-mmr": 1,
+        "op-nobind": 1,
+        "op-nores": 1,
+        "op-wrongres": 1
+      },
+      "reserved_events_per_op_id": {
+        "op-bogus": 1,
+        "op-clientres": 1,
+        "op-miss": 1,
+        "op-mmp": 1,
+        "op-mmr": 1,
+        "op-nobind": 1,
+        "op-nores": 1,
+        "op-wrongres": 1
+      },
+      "status": "PASS",
+      "writer_counts": {
+        "effects": 1,
+        "gates": 7,
+        "resolutions": 3
+      }
+    },
+    "test_g1_restart_without_recovery_refused": {
+      "classifications": [
+        {
+          "classification": "REFUSED_ATTEMPT_CREDENTIAL_INVALID",
+          "label": "retry_without_recovery"
+        },
+        {
+          "classification": "REFUSED_ATTEMPT_EXISTS_STATE_UNCHANGED",
+          "label": "re_register_attempt"
+        }
+      ],
+      "distinct_op_ids_reaching_witness": [
+        "op-S"
+      ],
+      "invariant_checks": {
+        "cleared_gates_with_matching_resolution": 0,
+        "effects_not_written_while_gate_open": 0,
+        "open_gates_without_effect": 0
+      },
+      "reservation_count": 1,
+      "reservations_per_op_id": {
+        "op-S": 1
+      },
+      "reserved_events_per_op_id": {
+        "op-S": 1
+      },
+      "status": "PASS",
+      "writer_counts": {
+        "effects": 0,
+        "gates": 1,
+        "resolutions": 0
+      }
+    },
+    "test_g3_authenticated_authority": {
+      "classifications": [
+        {
+          "classification": "REFUSED_UNAUTHENTICATED_STATE_UNCHANGED",
+          "label": "reconcile_wrong_credential"
+        },
+        {
+          "classification": "REFUSED_UNAUTHENTICATED_STATE_UNCHANGED",
+          "label": "reconcile_no_credential"
+        },
+        {
+          "classification": "REFUSED_UNAUTHORIZED_FOR_RECONCILE_STATE_UNCHANGED",
+          "label": "reconcile_client_credential"
+        },
+        {
+          "classification": "REFUSED_UNEXPECTED_FIELDS:actor_STATE_UNCHANGED",
+          "label": "reconcile_client_credential_claiming_reconciler"
+        },
+        {
+          "classification": "REFUSED_UNEXPECTED_FIELDS:identity_STATE_UNCHANGED",
+          "label": "reconcile_reconciler_credential_with_identity_field"
+        },
+        {
+          "classification": "REFUSED_GATE_OPEN_STATE_UNCHANGED",
+          "label": "client_write_while_open"
+        },
+        {
+          "classification": "RESOLVED_ACTOR_DERIVED_FROM_CREDENTIAL",
+          "label": "reconcile_reconciler_process"
+        }
+      ],
+      "distinct_op_ids_reaching_witness": [
+        "op-Au"
+      ],
+      "invariant_checks": {
+        "cleared_gates_with_matching_resolution": 1,
+        "effects_not_written_while_gate_open": 0,
+        "open_gates_without_effect": 0
+      },
+      "reservation_count": 1,
+      "reservations_per_op_id": {
+        "op-Au": 1
+      },
+      "reserved_events_per_op_id": {
+        "op-Au": 1
+      },
+      "status": "PASS",
+      "writer_counts": {
+        "effects": 0,
+        "gates": 1,
+        "resolutions": 1
+      }
+    },
+    "test_g4_resolution_semantics": {
+      "classifications": [
+        {
+          "classification": "REFUSED_NO_MATCHING_EFFECT_STATE_UNCHANGED",
+          "label": "confirm_without_effect"
+        },
+        {
+          "classification": "RESOLVED_INDETERMINATE_GATE_STAYS_OPEN",
+          "label": "indeterminate"
+        },
+        {
+          "classification": "REFUSED_GATE_OPEN_STATE_UNCHANGED",
+          "label": "write_after_indeterminate"
+        },
+        {
+          "classification": "REFUSED_EFFECT_EXISTS_STATE_UNCHANGED",
+          "label": "authorize_with_existing_effect"
+        },
+        {
+          "classification": "CLEARED_CONFIRMED",
+          "label": "confirm"
+        },
+        {
+          "classification": "REFUSED_CONFIRMED_EFFECT_NO_FURTHER_WRITE_STATE_UNCHANGED",
+          "label": "write_after_confirm"
+        },
+        {
+          "classification": "WRITTEN_ONCE_PERMISSION_CONSUMED",
+          "label": "authorized_write"
+        },
+        {
+          "classification": "REFUSED_ALREADY_WRITTEN_STATE_UNCHANGED",
+          "label": "second_authorized_write"
+        },
+        {
+          "classification": "REFUSED_RESERVATION_REVOKED_STATE_UNCHANGED",
+          "label": "authorize_revoked"
+        },
+        {
+          "classification": "REFUSED_RESERVATION_REVOKED_STATE_UNCHANGED",
+          "label": "write_after_revocation"
+        }
+      ],
+      "distinct_op_ids_reaching_witness": [
+        "op-Auth",
+        "op-Conf",
+        "op-Ind",
+        "op-Rev1",
+        "op-Rev2"
+      ],
+      "invariant_checks": {
+        "cleared_gates_with_matching_resolution": 3,
+        "effects_not_written_while_gate_open": 2,
+        "open_gates_without_effect": 2
+      },
+      "reservation_count": 5,
+      "reservations_per_op_id": {
+        "op-Auth": 1,
+        "op-Conf": 1,
+        "op-Ind": 1,
+        "op-Rev1": 1,
+        "op-Rev2": 1
+      },
+      "reserved_events_per_op_id": {
+        "op-Auth": 1,
+        "op-Conf": 1,
+        "op-Ind": 1,
+        "op-Rev1": 1,
+        "op-Rev2": 1
+      },
+      "status": "PASS",
+      "writer_counts": {
+        "effects": 2,
+        "gates": 5,
+        "resolutions": 4
+      }
+    },
+    "test_g5_sigkill_at_reconcile_commit_hooks": {
+      "classifications": [
+        {
+          "classification": "GATE_OPEN_NO_RESOLUTION",
+          "label": "pre_reconcile_commit"
+        },
+        {
+          "classification": "REFUSED_GATE_OPEN_STATE_UNCHANGED",
+          "label": "write_after_pre_commit_crash"
+        },
+        {
+          "classification": "CLEARED_WITH_COMPLETE_AUTHENTICATED_RESOLUTION",
+          "label": "post_reconcile_commit"
+        },
+        {
+          "classification": "REFUSED_ALREADY_WRITTEN_STATE_UNCHANGED",
+          "label": "second_write_after_post_commit_crash"
+        }
+      ],
+      "distinct_op_ids_reaching_witness": [
+        "op-Post",
+        "op-Pre"
+      ],
+      "invariant_checks": {
+        "cleared_gates_with_matching_resolution": 1,
+        "effects_not_written_while_gate_open": 1,
+        "open_gates_without_effect": 1
+      },
+      "reservation_count": 2,
+      "reservations_per_op_id": {
+        "op-Post": 1,
+        "op-Pre": 1
+      },
+      "reserved_events_per_op_id": {
+        "op-Post": 1,
+        "op-Pre": 1
+      },
+      "status": "PASS",
+      "writer_counts": {
+        "effects": 1,
+        "gates": 2,
+        "resolutions": 1
+      }
+    },
+    "test_h2_rs1_sequence_routed_through_writer": {
+      "classifications": [
+        {
+          "classification": "REFUSED_GATE_MISSING",
+          "label": "write_before_recovery"
+        },
+        {
+          "classification": "WITNESS_PERSISTED_LOCAL_EFFECT_UNRESOLVED+GATE_OPENED",
+          "label": "recovery"
+        },
+        {
+          "classification": "ACTIVE_REPLAY_REFUSED_GATE_OPEN",
+          "label": "retry_after_recovery"
+        },
+        {
+          "classification": "ACTIVE_REPLAY_REFUSED_GATE_OPEN",
+          "label": "retry_after_writer_restart"
+        }
+      ],
+      "distinct_op_ids_reaching_witness": [
+        "op-C"
+      ],
+      "invariant_checks": {
+        "cleared_gates_with_matching_resolution": 0,
+        "effects_not_written_while_gate_open": 0,
+        "open_gates_without_effect": 1
+      },
+      "reservation_count": 1,
+      "reservations_per_op_id": {
+        "op-C": 1
+      },
+      "reserved_events_per_op_id": {
+        "op-C": 1
+      },
+      "status": "PASS",
+      "writer_counts": {
+        "effects": 0,
+        "gates": 1,
+        "resolutions": 0
+      }
+    }
+  },
+  "started_utc": "2026-10-22T16:20:32.613892+00:00",
+  "unittest_returncode": 0
+}

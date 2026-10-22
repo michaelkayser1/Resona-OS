@@ -1,0 +1,163 @@
+{
+  "case": "test_reservation_slice.SliceCase.test_e1_same_op_id_different_bytes_conflicts",
+  "classifications": [
+    {
+      "classification": "IDEMPOTENCY_CONFLICT",
+      "label": "changed_value"
+    },
+    {
+      "classification": "IDEMPOTENCY_CONFLICT",
+      "label": "whitespace_only"
+    },
+    {
+      "classification": "IDEMPOTENCY_CONFLICT",
+      "label": "trailing_newline"
+    },
+    {
+      "classification": "REPLAYED_SAME_RESERVATION",
+      "label": "same_bytes_after_conflicts"
+    }
+  ],
+  "distinct_op_ids_reaching_witness": [
+    "op-B"
+  ],
+  "failure": null,
+  "observations": [
+    {
+      "step": "first_reserve",
+      "value": {
+        "op_id": "op-B",
+        "outcome": "RESERVED",
+        "payload_sha256": "a87b981c8bd094bdd968c307b253db43097e56e342a8e3fbe96739eeb2fc36b9",
+        "reservation_id": "R-00000001",
+        "status": "ACTIVE"
+      }
+    },
+    {
+      "step": "conflict_changed_value",
+      "value": {
+        "op_id": "op-B",
+        "outcome": "IDEMPOTENCY_CONFLICT",
+        "presented_payload_sha256": "2ee7432e4e6ceb9f38eee541801c782291dba7d9ce82168873780efffd18ad04",
+        "reservation_id": "R-00000001",
+        "status": "ACTIVE",
+        "stored_payload_sha256": "a87b981c8bd094bdd968c307b253db43097e56e342a8e3fbe96739eeb2fc36b9"
+      }
+    },
+    {
+      "step": "conflict_whitespace_only",
+      "value": {
+        "op_id": "op-B",
+        "outcome": "IDEMPOTENCY_CONFLICT",
+        "presented_payload_sha256": "46641e58b568b9f56dd8df9f07ae51139f1513d8e63981f4e25fe1ee0cee9727",
+        "reservation_id": "R-00000001",
+        "status": "ACTIVE",
+        "stored_payload_sha256": "a87b981c8bd094bdd968c307b253db43097e56e342a8e3fbe96739eeb2fc36b9"
+      }
+    },
+    {
+      "step": "conflict_trailing_newline",
+      "value": {
+        "op_id": "op-B",
+        "outcome": "IDEMPOTENCY_CONFLICT",
+        "presented_payload_sha256": "cfeca8702544e1adee34c1eb5029402492f57ec61735faa217337769c7297807",
+        "reservation_id": "R-00000001",
+        "status": "ACTIVE",
+        "stored_payload_sha256": "a87b981c8bd094bdd968c307b253db43097e56e342a8e3fbe96739eeb2fc36b9"
+      }
+    },
+    {
+      "step": "same_bytes_after_conflicts",
+      "value": {
+        "op_id": "op-B",
+        "outcome": "REPLAYED",
+        "payload_sha256": "a87b981c8bd094bdd968c307b253db43097e56e342a8e3fbe96739eeb2fc36b9",
+        "reservation_id": "R-00000001",
+        "status": "ACTIVE"
+      }
+    }
+  ],
+  "status": "PASS",
+  "transcript": [
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.server",
+        "--db",
+        "/tmp/rs1-44m8zdb9/witness.sqlite",
+        "--socket",
+        "/tmp/rs1-44m8zdb9/witness.sock"
+      ],
+      "event": "spawned",
+      "pid": 746,
+      "proc": "witness#1"
+    },
+    {
+      "proc": "witness#1",
+      "stdout": "READY {\"db\": \"/tmp/rs1-44m8zdb9/witness.sqlite\", \"pid\": 746}"
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "witness#1",
+      "returncode": -9
+    }
+  ],
+  "witness_records": {
+    "events": [
+      {
+        "kind": "RESERVED",
+        "op_id": "op-B",
+        "payload_sha256": "a87b981c8bd094bdd968c307b253db43097e56e342a8e3fbe96739eeb2fc36b9",
+        "reservation_id": "R-00000001",
+        "seq": 1
+      },
+      {
+        "kind": "CONFLICT",
+        "op_id": "op-B",
+        "payload_sha256": "2ee7432e4e6ceb9f38eee541801c782291dba7d9ce82168873780efffd18ad04",
+        "reservation_id": "R-00000001",
+        "seq": 2
+      },
+      {
+        "kind": "CONFLICT",
+        "op_id": "op-B",
+        "payload_sha256": "46641e58b568b9f56dd8df9f07ae51139f1513d8e63981f4e25fe1ee0cee9727",
+        "reservation_id": "R-00000001",
+        "seq": 3
+      },
+      {
+        "kind": "CONFLICT",
+        "op_id": "op-B",
+        "payload_sha256": "cfeca8702544e1adee34c1eb5029402492f57ec61735faa217337769c7297807",
+        "reservation_id": "R-00000001",
+        "seq": 4
+      },
+      {
+        "kind": "REPLAYED",
+        "op_id": "op-B",
+        "payload_sha256": "a87b981c8bd094bdd968c307b253db43097e56e342a8e3fbe96739eeb2fc36b9",
+        "reservation_id": "R-00000001",
+        "seq": 5
+      }
+    ],
+    "integrity_check": "ok",
+    "reservation_count": 1,
+    "reservations": [
+      {
+        "created_seq": 1,
+        "op_id": "op-B",
+        "payload_sha256": "a87b981c8bd094bdd968c307b253db43097e56e342a8e3fbe96739eeb2fc36b9",
+        "reservation_id": "R-00000001",
+        "revoked_seq": null,
+        "status": "ACTIVE"
+      }
+    ],
+    "reservations_per_op_id": {
+      "op-B": 1
+    },
+    "reserved_events_per_op_id": {
+      "op-B": 1
+    }
+  }
+}

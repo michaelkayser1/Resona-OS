@@ -1,0 +1,17 @@
+test_g0_normal_path_control (test_recovery_gate.GateCase.test_g0_normal_path_control) ... ok
+test_g1_fail_closed_gate_states (test_recovery_gate.GateCase.test_g1_fail_closed_gate_states) ... ok
+test_g1_restart_without_recovery_refused (test_recovery_gate.GateCase.test_g1_restart_without_recovery_refused) ... ok
+test_g3_authenticated_authority (test_recovery_gate.GateCase.test_g3_authenticated_authority) ... ok
+test_g4_resolution_semantics (test_recovery_gate.GateCase.test_g4_resolution_semantics) ... ok
+test_g5_sigkill_at_reconcile_commit_hooks (test_recovery_gate.GateCase.test_g5_sigkill_at_reconcile_commit_hooks) ... ok
+test_h2_rs1_sequence_routed_through_writer (test_recovery_gate.GateCase.test_h2_rs1_sequence_routed_through_writer) ... ok
+test_e1_same_op_id_different_bytes_conflicts (test_reservation_slice.SliceCase.test_e1_same_op_id_different_bytes_conflicts) ... ok
+test_e2_revocation_aware_retry (test_reservation_slice.SliceCase.test_e2_revocation_aware_retry) ... ok
+test_e3_sigkill_restart_recovery (test_reservation_slice.SliceCase.test_e3_sigkill_restart_recovery) ... ok
+test_e4_response_loss_then_idempotent_retry (test_reservation_slice.SliceCase.test_e4_response_loss_then_idempotent_retry) ... ok
+test_identity_immutable_status_one_way_no_delete (test_reservation_slice.StoreGuards.test_identity_immutable_status_one_way_no_delete) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 2.396s
+
+OK
