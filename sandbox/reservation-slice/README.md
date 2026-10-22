@@ -45,3 +45,35 @@ python3 -m unittest discover -s tests -v
   `synchronous=FULL` is configured but power-loss durability is not demonstrated.
 - Recovery classifies; it does not reconcile. `WITNESS_PERSISTED_LOCAL_EFFECT_UNRESOLVED`
   stays unresolved until other evidence establishes the effect's outcome.
+
+## RS-2 recovery gate
+
+Expectations: [EXPECTATIONS-RS2.md](EXPECTATIONS-RS2.md), frozen in commit `714500a`
+before any RS-2 code. `run_slice.py` runs RS-1 and RS-2 together and now refuses to run
+unless the **whole repository** working tree is clean.
+
+- `src/rs_slice/writer.py` — effect writer process, the enforcement boundary. It checks
+  gate state in the same transaction as the effect write. Identity comes only from the
+  presented credential (`{sha256(token): actor}` file); any request field outside the
+  per-operation allow-list, including `actor` or `identity`, is refused. Reconciliation
+  exposes hooks immediately before and after its commit (`--hold-at`).
+- `src/rs_slice/gated.py` — client and reconciler CLI; the credential comes from
+  `RS_CREDENTIAL`. Normal path: register attempt (single-use attempt credential held
+  in memory only), reserve, write.
+
+| Case | Expectation |
+| --- | --- |
+| `test_g0_normal_path_control` | control: one write via attempt, second refused |
+| `test_h2_rs1_sequence_routed_through_writer` | H2, G2: RS-1 sequence; ACTIVE replay refused at writer, before and after writer restart |
+| `test_g1_restart_without_recovery_refused` | G1: restart loses the attempt credential; retry and re-registration refused |
+| `test_g1_fail_closed_gate_states` | G1: missing, malformed, and mismatched gate state refused |
+| `test_g3_authenticated_authority` | G3: wrong/no credential, client credential, identity fields |
+| `test_g4_resolution_semantics` | G4: INDETERMINATE, CONFIRMED, AUTHORIZED once, revocation before and after |
+| `test_g5_sigkill_at_reconcile_commit_hooks` | G5: SIGKILL immediately before and after reconcile commit |
+
+RS-2 limits, in addition to RS-1's: credential separation is local (one host, one OS
+user; the operator can read every credential and store). The writer's revocation check
+is a witness lookup at write time, not atomic with witness revocation. The H2 case
+routes the RS-1 sequence through the writer; the unchanged RS-1 client writing to its
+own local database would bypass the writer and is not tested. Malformed-gate cases use
+state injected directly into the store while the writer is stopped.

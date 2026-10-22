@@ -24,9 +24,10 @@ def git(*args):
 
 
 def main():
-    dirty = git("status", "--porcelain", "--", ".")
+    # RS-2 H3: the whole repository working tree must be clean, not only this directory.
+    dirty = git("status", "--porcelain", "--untracked-files=all", "--", ":/")
     if dirty:
-        sys.exit(f"refusing to run: uncommitted changes in sandbox/reservation-slice:\n{dirty}")
+        sys.exit(f"refusing to run: repository working tree is not clean:\n{dirty}")
     commit = git("rev-parse", "HEAD")
     started = datetime.datetime.now(datetime.timezone.utc)
     run_id = started.strftime("%Y%m%dT%H%M%SZ") + "-" + commit[:12]
@@ -48,17 +49,24 @@ def main():
             "status": rec["status"],
             "classifications": rec.get("classifications", []),
             "reservation_count": wr.get("reservation_count"),
+            "writer_counts": ({k: len(rec["writer_records"][k]) for k in
+                               ("gates", "resolutions", "effects")}
+                              if "writer_records" in rec else None),
+            "invariant_checks": rec.get("invariant_checks"),
             "reservations_per_op_id": wr.get("reservations_per_op_id"),
             "reserved_events_per_op_id": wr.get("reserved_events_per_op_id"),
             "distinct_op_ids_reaching_witness": rec.get("distinct_op_ids_reaching_witness"),
         }
 
     manifest = {
-        "evidence_class": "local reservation-protocol engineering evidence (RS-1); "
-                          "not an acceptance run; Gate A and Gate B unchanged",
+        "evidence_class": "local engineering evidence: RS-1 reservation protocol and RS-2 "
+                          "recovery-gate enforcement under the tested conditions; not an "
+                          "acceptance run; Gate A and Gate B unchanged",
         "commit": commit,
         "branch": git("rev-parse", "--abbrev-ref", "HEAD"),
-        "expectations_blob_sha1": git("hash-object", "EXPECTATIONS.md"),
+        "expectations_blob_sha1": {"EXPECTATIONS.md": git("hash-object", "EXPECTATIONS.md"),
+                                   "EXPECTATIONS-RS2.md": git("hash-object", "EXPECTATIONS-RS2.md")},
+        "cleanliness_scope": "whole repository (git status --porcelain --untracked-files=all -- :/)",
         "started_utc": started.isoformat(),
         "finished_utc": finished.isoformat(),
         "commands": {"runner": f"cd sandbox/reservation-slice && python3 run_slice.py",
