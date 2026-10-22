@@ -1,0 +1,269 @@
+{
+  "case": "test_reservation_slice.SliceCase.test_e2_revocation_aware_retry",
+  "classifications": [
+    {
+      "classification": "REPLAYED_ORIGINAL_IDENTITY_STATUS_REVOKED",
+      "label": "retry_after_revoke"
+    },
+    {
+      "classification": "IDEMPOTENCY_CONFLICT",
+      "label": "different_bytes_after_revoke"
+    },
+    {
+      "classification": "REPLAYED_ORIGINAL_IDENTITY_STATUS_REVOKED",
+      "label": "retry_after_restart"
+    }
+  ],
+  "distinct_op_ids_reaching_witness": [
+    "op-D"
+  ],
+  "failure": null,
+  "observations": [
+    {
+      "step": "witness_commit_signal",
+      "value": {
+        "op_id": "op-D",
+        "outcome": "RESERVED",
+        "payload_sha256": "5647fb0dd9bd92f36ea65b92d467cb13d75f99275744e295a24bcd524c509ece",
+        "reservation_id": "R-00000001",
+        "status": "ACTIVE"
+      }
+    },
+    {
+      "step": "revoke",
+      "value": {
+        "op_id": "op-D",
+        "outcome": "REVOKED",
+        "payload_sha256": "5647fb0dd9bd92f36ea65b92d467cb13d75f99275744e295a24bcd524c509ece",
+        "reservation_id": "R-00000001",
+        "status": "REVOKED"
+      }
+    },
+    {
+      "step": "retry_after_revoke",
+      "value": {
+        "op_id": "op-D",
+        "outcome": "REPLAYED",
+        "payload_sha256": "5647fb0dd9bd92f36ea65b92d467cb13d75f99275744e295a24bcd524c509ece",
+        "reservation_id": "R-00000001",
+        "status": "REVOKED"
+      }
+    },
+    {
+      "step": "different_bytes_after_revoke",
+      "value": {
+        "op_id": "op-D",
+        "outcome": "IDEMPOTENCY_CONFLICT",
+        "presented_payload_sha256": "8cb224c0785ee10828bbfc4cdc35439afaba63bf1ceab984055429218d5b2966",
+        "reservation_id": "R-00000001",
+        "status": "REVOKED",
+        "stored_payload_sha256": "5647fb0dd9bd92f36ea65b92d467cb13d75f99275744e295a24bcd524c509ece"
+      }
+    },
+    {
+      "step": "client_process_retry",
+      "value": {
+        "op_id": "op-D",
+        "outcome": "REPLAYED",
+        "payload_sha256": "5647fb0dd9bd92f36ea65b92d467cb13d75f99275744e295a24bcd524c509ece",
+        "reservation_id": "R-00000001",
+        "status": "REVOKED"
+      }
+    },
+    {
+      "step": "lookup_after_restart",
+      "value": {
+        "op_id": "op-D",
+        "outcome": "FOUND",
+        "payload_sha256": "5647fb0dd9bd92f36ea65b92d467cb13d75f99275744e295a24bcd524c509ece",
+        "reservation_id": "R-00000001",
+        "status": "REVOKED"
+      }
+    },
+    {
+      "step": "retry_after_restart",
+      "value": {
+        "op_id": "op-D",
+        "outcome": "REPLAYED",
+        "payload_sha256": "5647fb0dd9bd92f36ea65b92d467cb13d75f99275744e295a24bcd524c509ece",
+        "reservation_id": "R-00000001",
+        "status": "REVOKED"
+      }
+    }
+  ],
+  "status": "PASS",
+  "transcript": [
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.server",
+        "--db",
+        "/tmp/rs1-zl6up0kn/witness.sqlite",
+        "--socket",
+        "/tmp/rs1-zl6up0kn/witness.sock",
+        "--drop-response-for",
+        "op-D"
+      ],
+      "event": "spawned",
+      "pid": 1100,
+      "proc": "witness#1"
+    },
+    {
+      "proc": "witness#1",
+      "stdout": "READY {\"db\": \"/tmp/rs1-zl6up0kn/witness.sqlite\", \"pid\": 1100}"
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.client",
+        "--socket",
+        "/tmp/rs1-zl6up0kn/witness.sock",
+        "--local-db",
+        "/tmp/rs1-zl6up0kn/local-effects.sqlite",
+        "run",
+        "--op-id",
+        "op-D",
+        "--payload-b64",
+        "eyJtYXJrZXIiOiJEIiwidiI6MX0="
+      ],
+      "event": "spawned",
+      "pid": 1101,
+      "proc": "client#1"
+    },
+    {
+      "proc": "witness#1",
+      "stdout": "COMMITTED {\"op_id\": \"op-D\", \"outcome\": \"RESERVED\", \"payload_sha256\": \"5647fb0dd9bd92f36ea65b92d467cb13d75f99275744e295a24bcd524c509ece\", \"reservation_id\": \"R-00000001\", \"status\": \"ACTIVE\"}"
+    },
+    {
+      "proc": "client#1",
+      "stdout": "RESPONSE_LOST {\"detail\": \"connection closed before a complete response\", \"op_id\": \"op-D\"}"
+    },
+    {
+      "event": "exited",
+      "proc": "client#1",
+      "returncode": 3
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.client",
+        "--socket",
+        "/tmp/rs1-zl6up0kn/witness.sock",
+        "--local-db",
+        "/tmp/rs1-zl6up0kn/local-effects.sqlite",
+        "run",
+        "--op-id",
+        "op-D",
+        "--payload-b64",
+        "eyJtYXJrZXIiOiJEIiwidiI6MX0="
+      ],
+      "event": "spawned",
+      "pid": 1102,
+      "proc": "client#2"
+    },
+    {
+      "proc": "client#2",
+      "stdout": "RESULT {\"op_id\": \"op-D\", \"outcome\": \"REPLAYED\", \"payload_sha256\": \"5647fb0dd9bd92f36ea65b92d467cb13d75f99275744e295a24bcd524c509ece\", \"reservation_id\": \"R-00000001\", \"status\": \"REVOKED\"}"
+    },
+    {
+      "event": "exited",
+      "proc": "client#2",
+      "returncode": 0
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "witness#1",
+      "returncode": -9
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.server",
+        "--db",
+        "/tmp/rs1-zl6up0kn/witness.sqlite",
+        "--socket",
+        "/tmp/rs1-zl6up0kn/witness.sock"
+      ],
+      "event": "spawned",
+      "pid": 1103,
+      "proc": "witness#2"
+    },
+    {
+      "proc": "witness#2",
+      "stdout": "READY {\"db\": \"/tmp/rs1-zl6up0kn/witness.sqlite\", \"pid\": 1103}"
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "witness#2",
+      "returncode": -9
+    }
+  ],
+  "witness_records": {
+    "events": [
+      {
+        "kind": "RESERVED",
+        "op_id": "op-D",
+        "payload_sha256": "5647fb0dd9bd92f36ea65b92d467cb13d75f99275744e295a24bcd524c509ece",
+        "reservation_id": "R-00000001",
+        "seq": 1
+      },
+      {
+        "kind": "REVOKED",
+        "op_id": "op-D",
+        "payload_sha256": null,
+        "reservation_id": "R-00000001",
+        "seq": 2
+      },
+      {
+        "kind": "REPLAYED",
+        "op_id": "op-D",
+        "payload_sha256": "5647fb0dd9bd92f36ea65b92d467cb13d75f99275744e295a24bcd524c509ece",
+        "reservation_id": "R-00000001",
+        "seq": 3
+      },
+      {
+        "kind": "CONFLICT",
+        "op_id": "op-D",
+        "payload_sha256": "8cb224c0785ee10828bbfc4cdc35439afaba63bf1ceab984055429218d5b2966",
+        "reservation_id": "R-00000001",
+        "seq": 4
+      },
+      {
+        "kind": "REPLAYED",
+        "op_id": "op-D",
+        "payload_sha256": "5647fb0dd9bd92f36ea65b92d467cb13d75f99275744e295a24bcd524c509ece",
+        "reservation_id": "R-00000001",
+        "seq": 5
+      },
+      {
+        "kind": "REPLAYED",
+        "op_id": "op-D",
+        "payload_sha256": "5647fb0dd9bd92f36ea65b92d467cb13d75f99275744e295a24bcd524c509ece",
+        "reservation_id": "R-00000001",
+        "seq": 6
+      }
+    ],
+    "integrity_check": "ok",
+    "reservation_count": 1,
+    "reservations": [
+      {
+        "created_seq": 1,
+        "op_id": "op-D",
+        "payload_sha256": "5647fb0dd9bd92f36ea65b92d467cb13d75f99275744e295a24bcd524c509ece",
+        "reservation_id": "R-00000001",
+        "revoked_seq": 2,
+        "status": "REVOKED"
+      }
+    ],
+    "reservations_per_op_id": {
+      "op-D": 1
+    },
+    "reserved_events_per_op_id": {
+      "op-D": 1
+    }
+  }
+}

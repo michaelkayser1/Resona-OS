@@ -1,0 +1,288 @@
+{
+  "case": "test_recovery_gate.GateCase.test_g1_restart_without_recovery_refused",
+  "classifications": [
+    {
+      "classification": "REFUSED_ATTEMPT_CREDENTIAL_INVALID",
+      "label": "retry_without_recovery"
+    },
+    {
+      "classification": "REFUSED_ATTEMPT_EXISTS_STATE_UNCHANGED",
+      "label": "re_register_attempt"
+    }
+  ],
+  "distinct_op_ids_reaching_witness": [
+    "op-S"
+  ],
+  "failure": null,
+  "injected_fixture_effects": [],
+  "injected_malformed_gates": [],
+  "invariant_checks": {
+    "cleared_gates_with_matching_resolution": 0,
+    "effects_not_written_while_gate_open": 0,
+    "open_gates_effect_absent_or_committed_before_opening": 0
+  },
+  "notes": [],
+  "observations": [
+    {
+      "step": "register",
+      "value": {
+        "attempt_credential": "58a1400f6c9fb228f5299c9c61d0770c656bd0a0cf0fa80854d85c282eef3ba0",
+        "decision": "ATTEMPT_REGISTERED"
+      }
+    },
+    {
+      "step": "retry_reserve",
+      "value": {
+        "op_id": "op-S",
+        "outcome": "REPLAYED",
+        "payload_sha256": "14749214f9f1dfcc07c1464d7d75230e5b00ddf959341d10bc747b4950fbab4d",
+        "reservation_id": "R-00000001",
+        "status": "ACTIVE"
+      }
+    },
+    {
+      "step": "retry_write_without_attempt_credential",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "ATTEMPT_CREDENTIAL_INVALID"
+      }
+    },
+    {
+      "step": "re_register_attempt",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "ATTEMPT_EXISTS"
+      }
+    }
+  ],
+  "pass_criterion": "EXPECTATIONS-RS2.md as amended by AMENDMENT-RS2-001.md",
+  "status": "PASS",
+  "transcript": [
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.server",
+        "--db",
+        "/tmp/rs2-ndgq9ooc/witness.sqlite",
+        "--socket",
+        "/tmp/rs2-ndgq9ooc/witness.sock",
+        "--hold-after-commit-for",
+        "op-S"
+      ],
+      "event": "spawned",
+      "pid": 1070,
+      "proc": "witness#1"
+    },
+    {
+      "proc": "witness#1",
+      "stdout": "READY {\"db\": \"/tmp/rs2-ndgq9ooc/witness.sqlite\", \"pid\": 1070}"
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.writer",
+        "--db",
+        "/tmp/rs2-ndgq9ooc/writer.sqlite",
+        "--socket",
+        "/tmp/rs2-ndgq9ooc/writer.sock",
+        "--witness-socket",
+        "/tmp/rs2-ndgq9ooc/witness.sock",
+        "--credentials",
+        "/tmp/rs2-ndgq9ooc/credentials.json"
+      ],
+      "event": "spawned",
+      "pid": 1071,
+      "proc": "writer#1"
+    },
+    {
+      "proc": "writer#1",
+      "stdout": "READY {\"db\": \"/tmp/rs2-ndgq9ooc/writer.sqlite\", \"pid\": 1071}"
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.gated",
+        "--witness-socket",
+        "/tmp/rs2-ndgq9ooc/witness.sock",
+        "--writer-socket",
+        "/tmp/rs2-ndgq9ooc/writer.sock",
+        "--local-db",
+        "/tmp/rs2-ndgq9ooc/local-effects.sqlite",
+        "run",
+        "--op-id",
+        "op-S",
+        "--payload-b64",
+        "eyJtYXJrZXIiOiJTIiwidiI6MX0=",
+        "--block-on-response-lost"
+      ],
+      "event": "spawned",
+      "pid": 1072,
+      "proc": "gated#1"
+    },
+    {
+      "proc": "gated#1",
+      "stdout": "REGISTER {\"attempt_credential\": \"58a1400f6c9fb228f5299c9c61d0770c656bd0a0cf0fa80854d85c282eef3ba0\", \"decision\": \"ATTEMPT_REGISTERED\"}"
+    },
+    {
+      "proc": "witness#1",
+      "stdout": "COMMITTED {\"op_id\": \"op-S\", \"outcome\": \"RESERVED\", \"payload_sha256\": \"14749214f9f1dfcc07c1464d7d75230e5b00ddf959341d10bc747b4950fbab4d\", \"reservation_id\": \"R-00000001\", \"status\": \"ACTIVE\"}"
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "witness#1",
+      "returncode": -9
+    },
+    {
+      "proc": "gated#1",
+      "stdout": "RESPONSE_LOST {\"detail\": \"connection closed before a complete response\", \"op_id\": \"op-S\"}"
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "gated#1",
+      "returncode": -9
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.server",
+        "--db",
+        "/tmp/rs2-ndgq9ooc/witness.sqlite",
+        "--socket",
+        "/tmp/rs2-ndgq9ooc/witness.sock"
+      ],
+      "event": "spawned",
+      "pid": 1073,
+      "proc": "witness#2"
+    },
+    {
+      "proc": "witness#2",
+      "stdout": "READY {\"db\": \"/tmp/rs2-ndgq9ooc/witness.sqlite\", \"pid\": 1073}"
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.gated",
+        "--witness-socket",
+        "/tmp/rs2-ndgq9ooc/witness.sock",
+        "--writer-socket",
+        "/tmp/rs2-ndgq9ooc/writer.sock",
+        "--local-db",
+        "/tmp/rs2-ndgq9ooc/local-effects.sqlite",
+        "retry",
+        "--op-id",
+        "op-S",
+        "--payload-b64",
+        "eyJtYXJrZXIiOiJTIiwidiI6MX0="
+      ],
+      "event": "spawned",
+      "pid": 1074,
+      "proc": "gated#2"
+    },
+    {
+      "proc": "gated#2",
+      "stdout": "RESERVE {\"op_id\": \"op-S\", \"outcome\": \"REPLAYED\", \"payload_sha256\": \"14749214f9f1dfcc07c1464d7d75230e5b00ddf959341d10bc747b4950fbab4d\", \"reservation_id\": \"R-00000001\", \"status\": \"ACTIVE\"}"
+    },
+    {
+      "proc": "gated#2",
+      "stdout": "WRITE {\"decision\": \"REFUSED\", \"reason\": \"ATTEMPT_CREDENTIAL_INVALID\"}"
+    },
+    {
+      "event": "exited",
+      "proc": "gated#2",
+      "returncode": 0
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "writer#1",
+      "returncode": -9
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "witness#2",
+      "returncode": -9
+    }
+  ],
+  "witness_records": {
+    "events": [
+      {
+        "kind": "RESERVED",
+        "op_id": "op-S",
+        "payload_sha256": "14749214f9f1dfcc07c1464d7d75230e5b00ddf959341d10bc747b4950fbab4d",
+        "reservation_id": "R-00000001",
+        "seq": 1
+      },
+      {
+        "kind": "REPLAYED",
+        "op_id": "op-S",
+        "payload_sha256": "14749214f9f1dfcc07c1464d7d75230e5b00ddf959341d10bc747b4950fbab4d",
+        "reservation_id": "R-00000001",
+        "seq": 2
+      }
+    ],
+    "integrity_check": "ok",
+    "reservation_count": 1,
+    "reservations": [
+      {
+        "created_seq": 1,
+        "op_id": "op-S",
+        "payload_sha256": "14749214f9f1dfcc07c1464d7d75230e5b00ddf959341d10bc747b4950fbab4d",
+        "reservation_id": "R-00000001",
+        "revoked_seq": null,
+        "status": "ACTIVE"
+      }
+    ],
+    "reservations_per_op_id": {
+      "op-S": 1
+    },
+    "reserved_events_per_op_id": {
+      "op-S": 1
+    }
+  },
+  "writer_records": {
+    "audit": [
+      {
+        "actor": "client",
+        "decision": "ATTEMPT_REGISTERED",
+        "op": "register_attempt",
+        "op_id": "op-S",
+        "reason": null,
+        "seq": 1
+      },
+      {
+        "actor": "client",
+        "decision": "REFUSED",
+        "op": "write",
+        "op_id": "op-S",
+        "reason": "ATTEMPT_CREDENTIAL_INVALID",
+        "seq": 2
+      },
+      {
+        "actor": "client",
+        "decision": "REFUSED",
+        "op": "register_attempt",
+        "op_id": "op-S",
+        "reason": "ATTEMPT_EXISTS",
+        "seq": 3
+      }
+    ],
+    "effects": [],
+    "gates": [
+      {
+        "attempt_digest": "<present>",
+        "op_id": "op-S",
+        "payload_sha256": "14749214f9f1dfcc07c1464d7d75230e5b00ddf959341d10bc747b4950fbab4d",
+        "reservation_id": null,
+        "resolution_id": null,
+        "state": "ATTEMPT",
+        "updated_seq": 1
+      }
+    ],
+    "integrity_check": "ok",
+    "resolutions": []
+  }
+}

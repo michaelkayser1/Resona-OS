@@ -1,0 +1,16 @@
+{
+  "cases/test_e1_same_op_id_different_bytes_conflicts.json": "9f5fa52b258210276248156da1b399b51c8c31062a9f3585b55e88f0a8876bc4",
+  "cases/test_e2_revocation_aware_retry.json": "39387a8c2c88dcd5aa967529e166375e9a7ded744549719995a491d4584b0742",
+  "cases/test_e3_sigkill_restart_recovery.json": "2c2f2f4b6a9e4e295df7ab08084299107dabc10c548cd5258d0fcb567eb35cc9",
+  "cases/test_e4_response_loss_then_idempotent_retry.json": "d822dda1d76702f9e0833a4b6e5972f6e7827693e16e3717f34e281fcb6d35a6",
+  "cases/test_g0_normal_path_control.json": "e07da0902f146782b702da52f0d8170f7798484d6dbc5a45d81b97a232bff75e",
+  "cases/test_g1_fail_closed_gate_states.json": "bbdb59826b46c5aee84b2f137d89986b676f6cb914821f1ee79e993344ce1264",
+  "cases/test_g1_restart_without_recovery_refused.json": "2094dc340e6d452123570174ddf5074fd2c3970bf1b9ffa310be8539fce2e6b8",
+  "cases/test_g3_authenticated_authority.json": "27d3f4a3afa42c00af9807a0c97c02a9a6735bc1ac78d853744271b0f4da9538",
+  "cases/test_g4_resolution_semantics.json": "0f0c8464350306028edb0b4cc6596c5ebc573e6fe512fbb95d740081c703b0ea",
+  "cases/test_g5_sigkill_at_reconcile_commit_hooks.json": "97171c34ffbffcfeedad450ffb88f2f67fd787b3ab64732f53a5ff1982b65e19",
+  "cases/test_h2_rs1_sequence_routed_through_writer.json": "6344e42b9f319ec48edf384d9c625fe2fe1bec1bb79af9587bda889a75421dd3",
+  "manifest.json": "2e16f1f4b0d04dcbe6808c45f5cd072da6516681b5a9d1bc90039f9bf01c6c1a",
+  "unittest.stderr.txt": "0a5a2935b09fd05ebf21ed886fe175261bf099e6116bb91ef3087431d3723dc7",
+  "unittest.stdout.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

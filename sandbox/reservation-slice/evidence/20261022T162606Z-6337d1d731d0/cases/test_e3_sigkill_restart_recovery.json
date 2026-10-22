@@ -1,0 +1,322 @@
+{
+  "case": "test_reservation_slice.SliceCase.test_e3_sigkill_restart_recovery",
+  "classifications": [
+    {
+      "classification": "WITNESS_PERSISTED_LOCAL_EFFECT_UNRESOLVED",
+      "label": "recovery_after_restart"
+    },
+    {
+      "classification": "NO_WITNESS_RESERVATION_LOCAL_EFFECT_ABSENT",
+      "label": "control_recovery"
+    },
+    {
+      "classification": "REPLAYED_SAME_RESERVATION",
+      "label": "retry_after_restart"
+    }
+  ],
+  "distinct_op_ids_reaching_witness": [
+    "op-C"
+  ],
+  "failure": null,
+  "observations": [
+    {
+      "step": "witness_commit_signal",
+      "value": {
+        "op_id": "op-C",
+        "outcome": "RESERVED",
+        "payload_sha256": "ce7979b94cdd8eee852dcfaa87e1236ad5e7ee1e3123064ca5a0edcca50bb606",
+        "reservation_id": "R-00000001",
+        "status": "ACTIVE"
+      }
+    },
+    {
+      "step": "witness_sigkill_rc",
+      "value": -9
+    },
+    {
+      "step": "client_saw",
+      "value": {
+        "detail": "connection closed before a complete response",
+        "op_id": "op-C"
+      }
+    },
+    {
+      "step": "client_sigkill_rc",
+      "value": -9
+    },
+    {
+      "step": "control_client_sigkill_rc",
+      "value": -9
+    },
+    {
+      "step": "recovery",
+      "value": {
+        "classification": "WITNESS_PERSISTED_LOCAL_EFFECT_UNRESOLVED",
+        "local_reservation_id": null,
+        "op_id": "op-C",
+        "witness": {
+          "op_id": "op-C",
+          "outcome": "FOUND",
+          "payload_sha256": "ce7979b94cdd8eee852dcfaa87e1236ad5e7ee1e3123064ca5a0edcca50bb606",
+          "reservation_id": "R-00000001",
+          "status": "ACTIVE"
+        }
+      }
+    },
+    {
+      "step": "control_recovery",
+      "value": {
+        "classification": "NO_WITNESS_RESERVATION_LOCAL_EFFECT_ABSENT",
+        "local_reservation_id": null,
+        "op_id": "op-C-control",
+        "witness": {
+          "op_id": "op-C-control",
+          "outcome": "NOT_FOUND"
+        }
+      }
+    },
+    {
+      "step": "retry_after_restart",
+      "value": {
+        "op_id": "op-C",
+        "outcome": "REPLAYED",
+        "payload_sha256": "ce7979b94cdd8eee852dcfaa87e1236ad5e7ee1e3123064ca5a0edcca50bb606",
+        "reservation_id": "R-00000001",
+        "status": "ACTIVE"
+      }
+    }
+  ],
+  "status": "PASS",
+  "transcript": [
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.server",
+        "--db",
+        "/tmp/rs1-bgqj9bt1/witness.sqlite",
+        "--socket",
+        "/tmp/rs1-bgqj9bt1/witness.sock",
+        "--hold-after-commit-for",
+        "op-C"
+      ],
+      "event": "spawned",
+      "pid": 1104,
+      "proc": "witness#1"
+    },
+    {
+      "proc": "witness#1",
+      "stdout": "READY {\"db\": \"/tmp/rs1-bgqj9bt1/witness.sqlite\", \"pid\": 1104}"
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.client",
+        "--socket",
+        "/tmp/rs1-bgqj9bt1/witness.sock",
+        "--local-db",
+        "/tmp/rs1-bgqj9bt1/local-effects.sqlite",
+        "run",
+        "--op-id",
+        "op-C",
+        "--payload-b64",
+        "eyJtYXJrZXIiOiJDIiwidiI6MX0=",
+        "--block-on-response-lost"
+      ],
+      "event": "spawned",
+      "pid": 1105,
+      "proc": "client#1"
+    },
+    {
+      "proc": "witness#1",
+      "stdout": "COMMITTED {\"op_id\": \"op-C\", \"outcome\": \"RESERVED\", \"payload_sha256\": \"ce7979b94cdd8eee852dcfaa87e1236ad5e7ee1e3123064ca5a0edcca50bb606\", \"reservation_id\": \"R-00000001\", \"status\": \"ACTIVE\"}"
+    },
+    {
+      "proc": "witness#1",
+      "stdout": "HOLDING {\"op_id\": \"op-C\"}"
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "witness#1",
+      "returncode": -9
+    },
+    {
+      "proc": "client#1",
+      "stdout": "RESPONSE_LOST {\"detail\": \"connection closed before a complete response\", \"op_id\": \"op-C\"}"
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "client#1",
+      "returncode": -9
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.client",
+        "--socket",
+        "/tmp/rs1-bgqj9bt1/witness.sock",
+        "--local-db",
+        "/tmp/rs1-bgqj9bt1/local-effects.sqlite",
+        "run",
+        "--op-id",
+        "op-C-control",
+        "--payload-b64",
+        "Y29udHJvbA==",
+        "--block-before-send"
+      ],
+      "event": "spawned",
+      "pid": 1106,
+      "proc": "client#2"
+    },
+    {
+      "proc": "client#2",
+      "stdout": "BLOCKED_BEFORE_SEND {\"op_id\": \"op-C-control\"}"
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "client#2",
+      "returncode": -9
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.server",
+        "--db",
+        "/tmp/rs1-bgqj9bt1/witness.sqlite",
+        "--socket",
+        "/tmp/rs1-bgqj9bt1/witness.sock"
+      ],
+      "event": "spawned",
+      "pid": 1107,
+      "proc": "witness#2"
+    },
+    {
+      "proc": "witness#2",
+      "stdout": "READY {\"db\": \"/tmp/rs1-bgqj9bt1/witness.sqlite\", \"pid\": 1107}"
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.client",
+        "--socket",
+        "/tmp/rs1-bgqj9bt1/witness.sock",
+        "--local-db",
+        "/tmp/rs1-bgqj9bt1/local-effects.sqlite",
+        "recover",
+        "--op-id",
+        "op-C"
+      ],
+      "event": "spawned",
+      "pid": 1108,
+      "proc": "client#3"
+    },
+    {
+      "proc": "client#3",
+      "stdout": "RECOVERY {\"classification\": \"WITNESS_PERSISTED_LOCAL_EFFECT_UNRESOLVED\", \"local_reservation_id\": null, \"op_id\": \"op-C\", \"witness\": {\"op_id\": \"op-C\", \"outcome\": \"FOUND\", \"payload_sha256\": \"ce7979b94cdd8eee852dcfaa87e1236ad5e7ee1e3123064ca5a0edcca50bb606\", \"reservation_id\": \"R-00000001\", \"status\": \"ACTIVE\"}}"
+    },
+    {
+      "event": "exited",
+      "proc": "client#3",
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.client",
+        "--socket",
+        "/tmp/rs1-bgqj9bt1/witness.sock",
+        "--local-db",
+        "/tmp/rs1-bgqj9bt1/local-effects.sqlite",
+        "recover",
+        "--op-id",
+        "op-C-control"
+      ],
+      "event": "spawned",
+      "pid": 1109,
+      "proc": "client#4"
+    },
+    {
+      "proc": "client#4",
+      "stdout": "RECOVERY {\"classification\": \"NO_WITNESS_RESERVATION_LOCAL_EFFECT_ABSENT\", \"local_reservation_id\": null, \"op_id\": \"op-C-control\", \"witness\": {\"op_id\": \"op-C-control\", \"outcome\": \"NOT_FOUND\"}}"
+    },
+    {
+      "event": "exited",
+      "proc": "client#4",
+      "returncode": 0
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.client",
+        "--socket",
+        "/tmp/rs1-bgqj9bt1/witness.sock",
+        "--local-db",
+        "/tmp/rs1-bgqj9bt1/local-effects.sqlite",
+        "run",
+        "--op-id",
+        "op-C",
+        "--payload-b64",
+        "eyJtYXJrZXIiOiJDIiwidiI6MX0="
+      ],
+      "event": "spawned",
+      "pid": 1110,
+      "proc": "client#5"
+    },
+    {
+      "proc": "client#5",
+      "stdout": "RESULT {\"op_id\": \"op-C\", \"outcome\": \"REPLAYED\", \"payload_sha256\": \"ce7979b94cdd8eee852dcfaa87e1236ad5e7ee1e3123064ca5a0edcca50bb606\", \"reservation_id\": \"R-00000001\", \"status\": \"ACTIVE\"}"
+    },
+    {
+      "event": "exited",
+      "proc": "client#5",
+      "returncode": 0
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "witness#2",
+      "returncode": -9
+    }
+  ],
+  "witness_records": {
+    "events": [
+      {
+        "kind": "RESERVED",
+        "op_id": "op-C",
+        "payload_sha256": "ce7979b94cdd8eee852dcfaa87e1236ad5e7ee1e3123064ca5a0edcca50bb606",
+        "reservation_id": "R-00000001",
+        "seq": 1
+      },
+      {
+        "kind": "REPLAYED",
+        "op_id": "op-C",
+        "payload_sha256": "ce7979b94cdd8eee852dcfaa87e1236ad5e7ee1e3123064ca5a0edcca50bb606",
+        "reservation_id": "R-00000001",
+        "seq": 2
+      }
+    ],
+    "integrity_check": "ok",
+    "reservation_count": 1,
+    "reservations": [
+      {
+        "created_seq": 1,
+        "op_id": "op-C",
+        "payload_sha256": "ce7979b94cdd8eee852dcfaa87e1236ad5e7ee1e3123064ca5a0edcca50bb606",
+        "reservation_id": "R-00000001",
+        "revoked_seq": null,
+        "status": "ACTIVE"
+      }
+    ],
+    "reservations_per_op_id": {
+      "op-C": 1
+    },
+    "reserved_events_per_op_id": {
+      "op-C": 1
+    }
+  }
+}

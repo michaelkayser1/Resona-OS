@@ -1,0 +1,585 @@
+{
+  "case": "test_recovery_gate.GateCase.test_g1_fail_closed_gate_states",
+  "classifications": [
+    {
+      "classification": "REFUSED_GATE_MISSING_STATE_UNCHANGED",
+      "label": "write_op-miss"
+    },
+    {
+      "classification": "REFUSED_GATE_MALFORMED_STATE_STATE_UNCHANGED",
+      "label": "write_op-bogus"
+    },
+    {
+      "classification": "REFUSED_GATE_MALFORMED_BINDING_STATE_UNCHANGED",
+      "label": "write_op-nobind"
+    },
+    {
+      "classification": "REFUSED_GATE_MALFORMED_CLEARED_WITHOUT_MATCHING_RESOLUTION_STATE_UNCHANGED",
+      "label": "write_op-nores"
+    },
+    {
+      "classification": "REFUSED_GATE_MALFORMED_CLEARED_WITHOUT_MATCHING_RESOLUTION_STATE_UNCHANGED",
+      "label": "write_op-wrongres"
+    },
+    {
+      "classification": "REFUSED_GATE_MALFORMED_CLEARED_WITHOUT_MATCHING_RESOLUTION_STATE_UNCHANGED",
+      "label": "write_op-clientres"
+    },
+    {
+      "classification": "REFUSED_GATE_MISMATCH_PAYLOAD_STATE_UNCHANGED",
+      "label": "write_op-mmp_other_payload"
+    },
+    {
+      "classification": "REFUSED_GATE_MISMATCH_RESERVATION_STATE_UNCHANGED",
+      "label": "write_op-mmr_wrong_rid"
+    },
+    {
+      "classification": "WRITTEN_ONCE_VIA_AUTHORIZED",
+      "label": "write_op-mmr_correct_after_mismatch"
+    }
+  ],
+  "distinct_op_ids_reaching_witness": [
+    "op-bogus",
+    "op-clientres",
+    "op-miss",
+    "op-mmp",
+    "op-mmr",
+    "op-nobind",
+    "op-nores",
+    "op-wrongres"
+  ],
+  "failure": null,
+  "injected_fixture_effects": [],
+  "injected_malformed_gates": [
+    "op-bogus",
+    "op-clientres",
+    "op-nobind",
+    "op-nores",
+    "op-wrongres"
+  ],
+  "invariant_checks": {
+    "cleared_gates_with_matching_resolution": 1,
+    "effects_not_written_while_gate_open": 1,
+    "open_gates_effect_absent_or_committed_before_opening": 0
+  },
+  "notes": [
+    "op-bogus, op-nobind, op-nores, op-wrongres, op-clientres carry directly injected malformed gate state; seal excludes them from the cleared-gate check and asserts they have no effect."
+  ],
+  "observations": [
+    {
+      "step": "write_op-miss",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "GATE_MISSING"
+      }
+    },
+    {
+      "step": "write_op-bogus",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "GATE_MALFORMED_STATE"
+      }
+    },
+    {
+      "step": "write_op-nobind",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "GATE_MALFORMED_BINDING"
+      }
+    },
+    {
+      "step": "write_op-nores",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "GATE_MALFORMED_CLEARED_WITHOUT_MATCHING_RESOLUTION"
+      }
+    },
+    {
+      "step": "write_op-wrongres",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "GATE_MALFORMED_CLEARED_WITHOUT_MATCHING_RESOLUTION"
+      }
+    },
+    {
+      "step": "write_op-clientres",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "GATE_MALFORMED_CLEARED_WITHOUT_MATCHING_RESOLUTION"
+      }
+    },
+    {
+      "step": "write_op-mmp_other_payload",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "GATE_MISMATCH_PAYLOAD"
+      }
+    },
+    {
+      "step": "authorize_op-mmr",
+      "value": {
+        "actor": "reconciler",
+        "decision": "RESOLVED",
+        "gate_state": "CLEARED_AUTHORIZED",
+        "outcome": "EFFECT_ABSENT_AUTHORIZED_TO_PROCEED",
+        "resolution_id": 3
+      }
+    },
+    {
+      "step": "write_op-mmr_wrong_rid",
+      "value": {
+        "decision": "REFUSED",
+        "reason": "GATE_MISMATCH_RESERVATION"
+      }
+    },
+    {
+      "step": "write_op-mmr_correct",
+      "value": {
+        "decision": "WRITTEN",
+        "resolution_id": 3,
+        "via": "AUTHORIZED_RESOLUTION"
+      }
+    }
+  ],
+  "pass_criterion": "EXPECTATIONS-RS2.md as amended by AMENDMENT-RS2-001.md",
+  "status": "PASS",
+  "transcript": [
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.server",
+        "--db",
+        "/tmp/rs2-mwvpbg6d/witness.sqlite",
+        "--socket",
+        "/tmp/rs2-mwvpbg6d/witness.sock"
+      ],
+      "event": "spawned",
+      "pid": 1067,
+      "proc": "witness#1"
+    },
+    {
+      "proc": "witness#1",
+      "stdout": "READY {\"db\": \"/tmp/rs2-mwvpbg6d/witness.sqlite\", \"pid\": 1067}"
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.writer",
+        "--db",
+        "/tmp/rs2-mwvpbg6d/writer.sqlite",
+        "--socket",
+        "/tmp/rs2-mwvpbg6d/writer.sock",
+        "--witness-socket",
+        "/tmp/rs2-mwvpbg6d/witness.sock",
+        "--credentials",
+        "/tmp/rs2-mwvpbg6d/credentials.json"
+      ],
+      "event": "spawned",
+      "pid": 1068,
+      "proc": "writer#1"
+    },
+    {
+      "proc": "writer#1",
+      "stdout": "READY {\"db\": \"/tmp/rs2-mwvpbg6d/writer.sqlite\", \"pid\": 1068}"
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "writer#1",
+      "returncode": -9
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "rs_slice.writer",
+        "--db",
+        "/tmp/rs2-mwvpbg6d/writer.sqlite",
+        "--socket",
+        "/tmp/rs2-mwvpbg6d/writer.sock",
+        "--witness-socket",
+        "/tmp/rs2-mwvpbg6d/witness.sock",
+        "--credentials",
+        "/tmp/rs2-mwvpbg6d/credentials.json"
+      ],
+      "event": "spawned",
+      "pid": 1069,
+      "proc": "writer#2"
+    },
+    {
+      "proc": "writer#2",
+      "stdout": "READY {\"db\": \"/tmp/rs2-mwvpbg6d/writer.sqlite\", \"pid\": 1069}"
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "witness#1",
+      "returncode": -9
+    },
+    {
+      "event": "SIGKILL",
+      "proc": "writer#2",
+      "returncode": -9
+    }
+  ],
+  "witness_records": {
+    "events": [
+      {
+        "kind": "RESERVED",
+        "op_id": "op-miss",
+        "payload_sha256": "9b8d1dd7c0ad3e96c32a90a8ab7ecb20a368b2647b891fe1d59dfcecfa6e3350",
+        "reservation_id": "R-00000001",
+        "seq": 1
+      },
+      {
+        "kind": "RESERVED",
+        "op_id": "op-bogus",
+        "payload_sha256": "caa24a90585494ca188030719b50d889c33101bc2e2150bbe67a71c36b14c2bf",
+        "reservation_id": "R-00000002",
+        "seq": 2
+      },
+      {
+        "kind": "RESERVED",
+        "op_id": "op-nobind",
+        "payload_sha256": "da955d8000b5e1c8a04a1241d44b0ff06fae6e34772cee7597fa8c8d8dc36867",
+        "reservation_id": "R-00000003",
+        "seq": 3
+      },
+      {
+        "kind": "RESERVED",
+        "op_id": "op-nores",
+        "payload_sha256": "8a651f35b17fa1d07081487886992d0ac1355b2b93301fb4a48b26e4885a26cc",
+        "reservation_id": "R-00000004",
+        "seq": 4
+      },
+      {
+        "kind": "RESERVED",
+        "op_id": "op-wrongres",
+        "payload_sha256": "0223ed0f534f2129e3837552aa7cc47e3e8ca469e16fc2fc7354fd3f528be100",
+        "reservation_id": "R-00000005",
+        "seq": 5
+      },
+      {
+        "kind": "RESERVED",
+        "op_id": "op-clientres",
+        "payload_sha256": "9253fcb77787e81d32ff733fa521d61797c881b344365c02092c1df42470b523",
+        "reservation_id": "R-00000006",
+        "seq": 6
+      },
+      {
+        "kind": "RESERVED",
+        "op_id": "op-mmp",
+        "payload_sha256": "aa46f42cde7db39e7cf682e34e6c73f2cbd327a6314e19ffc48403b88f3bfd17",
+        "reservation_id": "R-00000007",
+        "seq": 7
+      },
+      {
+        "kind": "RESERVED",
+        "op_id": "op-mmr",
+        "payload_sha256": "e3e19840be43e2cdef0e9daf3f7922750c83011fdb4a22200ad30bc44a7f114c",
+        "reservation_id": "R-00000008",
+        "seq": 8
+      }
+    ],
+    "integrity_check": "ok",
+    "reservation_count": 8,
+    "reservations": [
+      {
+        "created_seq": 1,
+        "op_id": "op-miss",
+        "payload_sha256": "9b8d1dd7c0ad3e96c32a90a8ab7ecb20a368b2647b891fe1d59dfcecfa6e3350",
+        "reservation_id": "R-00000001",
+        "revoked_seq": null,
+        "status": "ACTIVE"
+      },
+      {
+        "created_seq": 2,
+        "op_id": "op-bogus",
+        "payload_sha256": "caa24a90585494ca188030719b50d889c33101bc2e2150bbe67a71c36b14c2bf",
+        "reservation_id": "R-00000002",
+        "revoked_seq": null,
+        "status": "ACTIVE"
+      },
+      {
+        "created_seq": 3,
+        "op_id": "op-nobind",
+        "payload_sha256": "da955d8000b5e1c8a04a1241d44b0ff06fae6e34772cee7597fa8c8d8dc36867",
+        "reservation_id": "R-00000003",
+        "revoked_seq": null,
+        "status": "ACTIVE"
+      },
+      {
+        "created_seq": 4,
+        "op_id": "op-nores",
+        "payload_sha256": "8a651f35b17fa1d07081487886992d0ac1355b2b93301fb4a48b26e4885a26cc",
+        "reservation_id": "R-00000004",
+        "revoked_seq": null,
+        "status": "ACTIVE"
+      },
+      {
+        "created_seq": 5,
+        "op_id": "op-wrongres",
+        "payload_sha256": "0223ed0f534f2129e3837552aa7cc47e3e8ca469e16fc2fc7354fd3f528be100",
+        "reservation_id": "R-00000005",
+        "revoked_seq": null,
+        "status": "ACTIVE"
+      },
+      {
+        "created_seq": 6,
+        "op_id": "op-clientres",
+        "payload_sha256": "9253fcb77787e81d32ff733fa521d61797c881b344365c02092c1df42470b523",
+        "reservation_id": "R-00000006",
+        "revoked_seq": null,
+        "status": "ACTIVE"
+      },
+      {
+        "created_seq": 7,
+        "op_id": "op-mmp",
+        "payload_sha256": "aa46f42cde7db39e7cf682e34e6c73f2cbd327a6314e19ffc48403b88f3bfd17",
+        "reservation_id": "R-00000007",
+        "revoked_seq": null,
+        "status": "ACTIVE"
+      },
+      {
+        "created_seq": 8,
+        "op_id": "op-mmr",
+        "payload_sha256": "e3e19840be43e2cdef0e9daf3f7922750c83011fdb4a22200ad30bc44a7f114c",
+        "reservation_id": "R-00000008",
+        "revoked_seq": null,
+        "status": "ACTIVE"
+      }
+    ],
+    "reservations_per_op_id": {
+      "op-bogus": 1,
+      "op-clientres": 1,
+      "op-miss": 1,
+      "op-mmp": 1,
+      "op-mmr": 1,
+      "op-nobind": 1,
+      "op-nores": 1,
+      "op-wrongres": 1
+    },
+    "reserved_events_per_op_id": {
+      "op-bogus": 1,
+      "op-clientres": 1,
+      "op-miss": 1,
+      "op-mmp": 1,
+      "op-mmr": 1,
+      "op-nobind": 1,
+      "op-nores": 1,
+      "op-wrongres": 1
+    }
+  },
+  "writer_records": {
+    "audit": [
+      {
+        "actor": "client",
+        "decision": "REFUSED",
+        "op": "write",
+        "op_id": "op-miss",
+        "reason": "GATE_MISSING",
+        "seq": 1
+      },
+      {
+        "actor": "client",
+        "decision": "REFUSED",
+        "op": "write",
+        "op_id": "op-bogus",
+        "reason": "GATE_MALFORMED_STATE",
+        "seq": 2
+      },
+      {
+        "actor": "client",
+        "decision": "REFUSED",
+        "op": "write",
+        "op_id": "op-nobind",
+        "reason": "GATE_MALFORMED_BINDING",
+        "seq": 3
+      },
+      {
+        "actor": "client",
+        "decision": "REFUSED",
+        "op": "write",
+        "op_id": "op-nores",
+        "reason": "GATE_MALFORMED_CLEARED_WITHOUT_MATCHING_RESOLUTION",
+        "seq": 4
+      },
+      {
+        "actor": "client",
+        "decision": "REFUSED",
+        "op": "write",
+        "op_id": "op-wrongres",
+        "reason": "GATE_MALFORMED_CLEARED_WITHOUT_MATCHING_RESOLUTION",
+        "seq": 5
+      },
+      {
+        "actor": "client",
+        "decision": "REFUSED",
+        "op": "write",
+        "op_id": "op-clientres",
+        "reason": "GATE_MALFORMED_CLEARED_WITHOUT_MATCHING_RESOLUTION",
+        "seq": 6
+      },
+      {
+        "actor": "client",
+        "decision": "ATTEMPT_REGISTERED",
+        "op": "register_attempt",
+        "op_id": "op-mmp",
+        "reason": null,
+        "seq": 7
+      },
+      {
+        "actor": "client",
+        "decision": "REFUSED",
+        "op": "write",
+        "op_id": "op-mmp",
+        "reason": "GATE_MISMATCH_PAYLOAD",
+        "seq": 8
+      },
+      {
+        "actor": "client",
+        "decision": "GATE_OPENED",
+        "op": "mark_unresolved",
+        "op_id": "op-mmr",
+        "reason": null,
+        "seq": 9
+      },
+      {
+        "actor": "reconciler",
+        "decision": "RESOLVED",
+        "op": "reconcile",
+        "op_id": "op-mmr",
+        "reason": null,
+        "seq": 10
+      },
+      {
+        "actor": "client",
+        "decision": "REFUSED",
+        "op": "write",
+        "op_id": "op-mmr",
+        "reason": "GATE_MISMATCH_RESERVATION",
+        "seq": 11
+      },
+      {
+        "actor": "client",
+        "decision": "WRITTEN",
+        "op": "write",
+        "op_id": "op-mmr",
+        "reason": null,
+        "seq": 12
+      }
+    ],
+    "effects": [
+      {
+        "actor": "client",
+        "op_id": "op-mmr",
+        "payload_sha256": "e3e19840be43e2cdef0e9daf3f7922750c83011fdb4a22200ad30bc44a7f114c",
+        "reservation_id": "R-00000008",
+        "resolution_id": 3,
+        "seq": 12,
+        "via": "AUTHORIZED_RESOLUTION"
+      }
+    ],
+    "gates": [
+      {
+        "attempt_digest": null,
+        "op_id": "op-bogus",
+        "payload_sha256": "caa24a90585494ca188030719b50d889c33101bc2e2150bbe67a71c36b14c2bf",
+        "reservation_id": "R-00000002",
+        "resolution_id": null,
+        "state": "BOGUS",
+        "updated_seq": 0
+      },
+      {
+        "attempt_digest": null,
+        "op_id": "op-clientres",
+        "payload_sha256": "9253fcb77787e81d32ff733fa521d61797c881b344365c02092c1df42470b523",
+        "reservation_id": "R-00000006",
+        "resolution_id": 2,
+        "state": "CLEARED_AUTHORIZED",
+        "updated_seq": 0
+      },
+      {
+        "attempt_digest": "<present>",
+        "op_id": "op-mmp",
+        "payload_sha256": "aa46f42cde7db39e7cf682e34e6c73f2cbd327a6314e19ffc48403b88f3bfd17",
+        "reservation_id": null,
+        "resolution_id": null,
+        "state": "ATTEMPT",
+        "updated_seq": 7
+      },
+      {
+        "attempt_digest": null,
+        "op_id": "op-mmr",
+        "payload_sha256": "e3e19840be43e2cdef0e9daf3f7922750c83011fdb4a22200ad30bc44a7f114c",
+        "reservation_id": "R-00000008",
+        "resolution_id": 3,
+        "state": "CONSUMED",
+        "updated_seq": 12
+      },
+      {
+        "attempt_digest": null,
+        "op_id": "op-nobind",
+        "payload_sha256": "da955d8000b5e1c8a04a1241d44b0ff06fae6e34772cee7597fa8c8d8dc36867",
+        "reservation_id": null,
+        "resolution_id": null,
+        "state": "OPEN",
+        "updated_seq": 0
+      },
+      {
+        "attempt_digest": null,
+        "op_id": "op-nores",
+        "payload_sha256": "8a651f35b17fa1d07081487886992d0ac1355b2b93301fb4a48b26e4885a26cc",
+        "reservation_id": "R-00000004",
+        "resolution_id": null,
+        "state": "CLEARED_AUTHORIZED",
+        "updated_seq": 0
+      },
+      {
+        "attempt_digest": null,
+        "op_id": "op-wrongres",
+        "payload_sha256": "0223ed0f534f2129e3837552aa7cc47e3e8ca469e16fc2fc7354fd3f528be100",
+        "reservation_id": "R-00000005",
+        "resolution_id": 1,
+        "state": "CLEARED_AUTHORIZED",
+        "updated_seq": 0
+      }
+    ],
+    "integrity_check": "ok",
+    "resolutions": [
+      {
+        "actor": "reconciler",
+        "credential_fingerprint": "injected",
+        "evidence": "{}",
+        "id": 1,
+        "op_id": "op-wrongres",
+        "outcome": "EFFECT_ABSENT_AUTHORIZED_TO_PROCEED",
+        "payload_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "reservation_id": "R-00000005",
+        "seq": 0
+      },
+      {
+        "actor": "client",
+        "credential_fingerprint": "injected",
+        "evidence": "{}",
+        "id": 2,
+        "op_id": "op-clientres",
+        "outcome": "EFFECT_ABSENT_AUTHORIZED_TO_PROCEED",
+        "payload_sha256": "9253fcb77787e81d32ff733fa521d61797c881b344365c02092c1df42470b523",
+        "reservation_id": "R-00000006",
+        "seq": 0
+      },
+      {
+        "actor": "reconciler",
+        "credential_fingerprint": "77c24ba3d8ef4b5b",
+        "evidence": "{\"basis\": \"harness\", \"case\": \"test_recovery_gate.GateCase.test_g1_fail_closed_gate_states\"}",
+        "id": 3,
+        "op_id": "op-mmr",
+        "outcome": "EFFECT_ABSENT_AUTHORIZED_TO_PROCEED",
+        "payload_sha256": "e3e19840be43e2cdef0e9daf3f7922750c83011fdb4a22200ad30bc44a7f114c",
+        "reservation_id": "R-00000008",
+        "seq": 10
+      }
+    ]
+  }
+}
