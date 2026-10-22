@@ -9,6 +9,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib import error, request
 
@@ -16,8 +17,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from resona_sandbox.storage import ContentStore, OpLog
-from resona_sandbox.wire import b64, fingerprint, sign_approval, sha
+from resona_sandbox.storage import ContentStore, OpLog, DestinationStore
+from resona_sandbox.wire import b64, fingerprint, sign_approval, sha, sign_token, iso
 
 ROLES = ("policy_owner", "domain_adjudicator", "external_validator")
 
@@ -70,7 +71,7 @@ def main():
     save(private / "head-public.json", {role: key.public_key().public_bytes(
         serialization.Encoding.Raw, serialization.PublicFormat.Raw).hex() for role, key in head_keys.items()})
     credentials = {name: secrets.token_urlsafe(32) for name in
-                   ("marker", "witness", "attest", "executor", "verifier", "revoke", "custodian")}
+                   ("marker", "marker_revoke", "witness", "attest", "executor", "verifier", "revoke", "custodian")}
     content = ContentStore(str(private / "content.sqlite"))
     policy = {"version": "security-challenge-v1", "required_roles": list(ROLES),
               "rules": [{"action_class": "WRITE_MARKER_V1", "target": "test-marker-ledger"}],
@@ -94,9 +95,12 @@ def main():
     ports = free_ports()
     urls = {role: f"http://127.0.0.1:{port}" for role, port in
             zip(("marker", "witness", "executor", "verifier", "custodian"), ports)}
+    store_id = DestinationStore.initialize(str(private / "destination.sqlite"))
     settings = {
         "marker": {"MARKER_AUTH_TOKEN": credentials["marker"], "DESTINATION_DB": str(private / "destination.sqlite"),
-                   "MARKER_LOG_DB": str(private / "marker-log.sqlite")},
+                   "MARKER_LOG_DB": str(private / "marker-log.sqlite"), "DESTINATION_STORE_ID": store_id,
+                   "MARKER_REVOKE_AUTH_TOKEN": credentials["marker_revoke"], "MARKER_ACTIVE_POLICY_SHA256": policy_hash,
+                   "WITNESS_KEY_ID": "W1", "WITNESS_PUBLIC_KEY_FILE": str(private / "witness.pub")},
         "witness": {"WITNESS_AUTH_TOKEN": credentials["witness"], "WITNESS_ATTEST_AUTH_TOKEN": credentials["attest"],
                     "WITNESS_CONTENT_DB": str(private / "content.sqlite"), "WITNESS_LOG_DB": str(private / "witness-log.sqlite"),
                     "WITNESS_KEY_ID": "W1", "WITNESS_PRIVATE_KEY_FILE": str(private / "witness.key"),
@@ -106,7 +110,7 @@ def main():
                      "WITNESS_KEY_ID": "W1", "WITNESS_PUBLIC_KEY_FILE": str(private / "witness.pub"),
                      "VERIFIER_URL": urls["verifier"], "VERIFIER_AUTH_TOKEN": credentials["verifier"]},
         "verifier": {"VERIFIER_AUTH_TOKEN": credentials["verifier"], "VERIFIER_REVOKE_AUTH_TOKEN": credentials["revoke"],
-                     "DESTINATION_DB": str(private / "destination.sqlite"),
+                     "DESTINATION_STORE_ID": store_id, "MARKER_REVOKE_AUTH_TOKEN": credentials["marker_revoke"],
                      "VERIFIER_LOG_DB": str(private / "verifier-log.sqlite"), "VERIFIER_ACTIVE_POLICY_SHA256": policy_hash,
                      "WITNESS_KEY_ID": "W1", "WITNESS_PUBLIC_KEY_FILE": str(private / "witness.pub"),
                      "MARKER_URL": urls["marker"], "MARKER_AUTH_TOKEN": credentials["marker"]},
@@ -178,6 +182,21 @@ def main():
               409, {"reason": "MISSING_APPROVAL"}, [])
         check("direct_marker_with_proposer_credential", "marker", "/marker", credentials["witness"], original["action"],
               403, {"error": "FORBIDDEN"}, [])
+        check("mismatched_destination_identity", "marker", "/marker", credentials["marker"],
+              {"action": original["action"], "token": token,
+               "store_id": "00000000-0000-0000-0000-000000000000"},
+              409, {"reason": "STORE_ID_MISMATCH"}, [])
+        check("unsigned_direct_marker", "marker", "/marker", credentials["marker"],
+              {"action": original["action"], "token": None, "store_id": store_id},
+              409, {"reason": "INVALID_FIELDS"}, [])
+        moment = datetime.now(timezone.utc)
+        expired_fields = {k: v for k, v in token.items() if k != "signature"}
+        expired_fields.update(not_before_utc=iso(moment - timedelta(seconds=60)),
+                              expires_at_utc=iso(moment - timedelta(seconds=1)))
+        expired_token = sign_token(expired_fields, witness_key)
+        check("expired_signed_direct_marker", "marker", "/marker", credentials["marker"],
+              {"action": original["action"], "token": expired_token, "store_id": store_id},
+              409, {"reason": "EXPIRED_OR_EARLY"}, [])
         rows = [["authorized_request", "authorized_marker"]]
         check("authorized_write", "executor", "/execute", credentials["executor"],
               {"proposal": original, "token": token}, 200, {"decision": "DISPATCHED"}, rows)
@@ -196,7 +215,7 @@ def main():
         check("revoked_cached_token", "verifier", "/effect", credentials["verifier"],
               {"action": revoked["action"], "token": revoked_token}, 409, {"reason": "REVOKED"}, rows)
         check("revoked_direct_marker", "marker", "/marker", credentials["marker"],
-              revoked["action"], 409, {"reason": "REVOKED"}, rows)
+              {"action": revoked["action"], "token": revoked_token, "store_id": store_id}, 409, {"reason": "REVOKED"}, rows)
         held_heads = {}
         for role, key in head_keys.items():
             log = OpLog(str(private / (role + "-log.sqlite")), role)

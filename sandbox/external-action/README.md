@@ -15,54 +15,70 @@ PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -v
 
 These engineering tests exercise actor logic and one five-process loopback smoke path on a single host. The process test creates keys and credentials under one test user. It verifies wiring, not separate trust domains. These tests are explicitly **not** the external-action acceptance run.
 
-## Process adapters
+## Process adapters and destination initialization
 
-`scripts/serve.py` starts one loopback-only process per role:
+`scripts/serve.py` starts one loopback-only process per role. Only the marker/destination owner opens `DESTINATION_DB`. The verifier forwards both effects and revocations to the same `MARKER_URL`; it refuses startup if `DESTINATION_DB`, `VERIFIER_REVOCATION_DB`, or `MARKER_DB` is set in its environment.
 
 | Role | Port example | Required environment |
 | --- | --- | --- |
-| Marker | 8111 | `MARKER_AUTH_TOKEN`, `DESTINATION_DB`, `MARKER_LOG_DB` |
-| Witness | 8112 | `WITNESS_AUTH_TOKEN` (intake), distinct `WITNESS_ATTEST_AUTH_TOKEN` (trusted evaluator), `WITNESS_CONTENT_DB`, `WITNESS_LOG_DB`, `WITNESS_KEY_ID`, `WITNESS_PRIVATE_KEY_FILE`, `WITNESS_ACTIVE_POLICY_SHA256` |
+| Marker / destination owner | 8111 | `MARKER_AUTH_TOKEN`, distinct `MARKER_REVOKE_AUTH_TOKEN`, `DESTINATION_DB`, `DESTINATION_STORE_ID`, `MARKER_LOG_DB`, `MARKER_ACTIVE_POLICY_SHA256`, `WITNESS_KEY_ID`, `WITNESS_PUBLIC_KEY_FILE` |
+| Witness | 8112 | `WITNESS_AUTH_TOKEN`, distinct `WITNESS_ATTEST_AUTH_TOKEN`, `WITNESS_CONTENT_DB`, `WITNESS_LOG_DB`, `WITNESS_KEY_ID`, `WITNESS_PRIVATE_KEY_FILE`, `WITNESS_ACTIVE_POLICY_SHA256` |
 | Executor | 8113 | `EXECUTOR_AUTH_TOKEN`, `EXECUTOR_NONCE_DB`, `EXECUTOR_LOG_DB`, `EXECUTOR_ACTIVE_POLICY_SHA256`, `WITNESS_KEY_ID`, `WITNESS_PUBLIC_KEY_FILE`, `VERIFIER_URL`, `VERIFIER_AUTH_TOKEN` |
-| Destination verifier | 8115 | `VERIFIER_AUTH_TOKEN`, distinct `VERIFIER_REVOKE_AUTH_TOKEN`, `DESTINATION_DB`, `VERIFIER_LOG_DB`, `VERIFIER_ACTIVE_POLICY_SHA256`, `WITNESS_KEY_ID`, `WITNESS_PUBLIC_KEY_FILE`, `MARKER_URL`, `MARKER_AUTH_TOKEN` |
+| Destination verifier | 8115 | `VERIFIER_AUTH_TOKEN`, distinct `VERIFIER_REVOKE_AUTH_TOKEN`, `DESTINATION_STORE_ID`, `VERIFIER_LOG_DB`, `VERIFIER_ACTIVE_POLICY_SHA256`, `WITNESS_KEY_ID`, `WITNESS_PUBLIC_KEY_FILE`, `MARKER_URL`, `MARKER_AUTH_TOKEN`, `MARKER_REVOKE_AUTH_TOKEN` |
 | Head custodian | 8114 | `CUSTODIAN_AUTH_TOKEN`, `CUSTODIAN_DB`, `CUSTODIAN_KEYS_FILE` |
 
-From separate shells, with distinct credentials and file permissions:
+Initialize a **new** local destination database deliberately:
 
 ```bash
-export RESONA_SANDBOX_MODE=local_test  # set separately in each shell
-PYTHONPATH=src python3 scripts/serve.py marker --port 8111
-PYTHONPATH=src python3 scripts/serve.py witness --port 8112
-PYTHONPATH=src python3 scripts/serve.py executor --port 8113
-PYTHONPATH=src python3 scripts/serve.py verifier --port 8115
-PYTHONPATH=src python3 scripts/serve.py custodian --port 8114
+PYTHONPATH=src python scripts/init_destination.py /absolute/local/path/destination.sqlite
 ```
 
-Each process requires `RESONA_SANDBOX_MODE=local_test` in its environment and refuses to start otherwise. The sandbox directory is not imported by the Next.js application. This guard prevents accidental startup through the documented adapter; it is not a security boundary against someone who can run arbitrary code or set environment variables.
+The command prints a UUID stored in a single-row metadata table. Pin that value as `DESTINATION_STORE_ID` in the marker and verifier environments. Marker startup reads the database identity; verifier startup reads the owner's authenticated `/identity` response and compares it with its pin. An existing file is never automatically initialized, migrated, or assigned new metadata. Old split stores and stores without metadata require a separately reviewed migration; no migration procedure or successful migration evidence is supplied here.
 
-Only `127.0.0.1` is bound. The marker endpoint accepts a bearer credential held by the destination verifier, not by the executor; it enforces request-ID uniqueness in SQLite. The witness content store is opened read-only in the witness process and must be populated and protected by a different policy owner before testing. The witness cannot write marker records, and the marker cannot read policy or signing keys. The marker and verifier must share the exact same `DESTINATION_DB` file (an absolute local path) containing both marker rows and revocation receipts. Other databases, keys, and credentials remain actor-specific. This shared destination store changes the local custody layout; it does not establish independent custody. Existing split databases require an explicit reviewed migration; this patch does not merge or migrate them automatically.
+From separate shells with the listed settings and actor-specific credentials:
 
-The policy owner must supply the current 64-character lowercase SHA-256 digest as `WITNESS_ACTIVE_POLICY_SHA256` outside the proposal. The executor separately requires `EXECUTOR_ACTIVE_POLICY_SHA256` and rejects even a correctly signed, unexpired token whose policy digest differs. The witness rejects any other policy hash, even if the old policy and its signing keys remain in the content store. Changing either pin requires a controlled restart. Configuration custody and synchronized rollout are external responsibilities: old executor processes that have not restarted can still redeem old tokens; a witness and executor on different pins fail closed for new tokens. The two variables in this single-host smoke test do not establish independently held authority or an atomic rotation instant.
+```bash
+export RESONA_SANDBOX_MODE=local_test
+PYTHONPATH=src python scripts/serve.py marker --port 8111
+PYTHONPATH=src python scripts/serve.py witness --port 8112
+PYTHONPATH=src python scripts/serve.py executor --port 8113
+PYTHONPATH=src python scripts/serve.py verifier --port 8115
+PYTHONPATH=src python scripts/serve.py custodian --port 8114
+```
 
-Generate **separate** test-only Ed25519 keys with `scripts/gen_key.py`. The witness token key, three approver keys, and each actor's log-head key must differ. `CUSTODIAN_KEYS_FILE` is JSON mapping actor names to their raw public key hex strings. The custodian accepts signed heads through `POST /heads`; `scripts/publish_head.py` publishes a head from an actor's own log. Publishing is explicit, not automatic: **a missing or stale externally held head means no completeness claim**.
+Set `RESONA_SANDBOX_MODE=local_test` separately in each shell. Only `127.0.0.1` is bound. This startup guard is not a security boundary against an operator who can run arbitrary code or alter configuration. Do not inherit the marker's database-path environment into the verifier. The Next.js application does not import this sandbox.
 
-The process API is `POST /proposals` on witness for an intake acknowledgement (`HOLD`, no token), then `POST /attest` under a **different** credential available only to the trusted test controller. The latter independently checks policy and evidence and returns a signed token. `POST /execute` on executor takes `{"proposal": ..., "token": ...}` and forwards the authorized effect to `POST /effect` on the destination verifier. The verifier holds the marker credential; `POST /marker` is not directly available to the executor. `GET /markers` supports independent staging reconciliation. The trusted controller must keep the attestation credential out of the proposer. Do not use real personal data. Bearer HTTP on loopback is for local research only; it is not a production authentication design.
+Generate separate test-only Ed25519 keys with `scripts/gen_key.py`. The witness token key, three approval keys, and log-head keys must differ. The witness fixture content store is read-only in the witness process; populate policy/evidence and pin active policy digests before starting actors. Marker, verifier, executor, and witness policy pins require controlled configuration/restart; no live policy-rotation transaction is implemented.
 
-### Path 2: cached-token revocation at the destination
+The process API is witness `POST /proposals` (intake `HOLD`, no token), then `POST /attest` with the distinct trusted-controller credential. Executor `POST /execute` accepts `{proposal, token}` and forwards to verifier `POST /effect` with `{action, token}`. The verifier forwards the original signed token and its pinned store ID to destination-owner `POST /marker` as `{action, token, store_id}`. The marker credential alone cannot authorize a bare action. The owner verifies signed authority, action scope, static active policy pin, and lease inside the final marker transaction.
 
-The synthetic Path 2 addition introduces a separate destination-side verifier. `POST /revoke` records the verifier's receipt time under a revocation credential that is distinct from the effect credential. `POST /effect` accepts an action plus signed witness token and rechecks the token signature, action fingerprint, active policy pin, lease boundary, and destination revocation state before forwarding the marker request. The final marker transaction rechecks receipt existence and inserts the marker under the same SQLite `BEGIN IMMEDIATE` writer boundary used by revocation commitment. Revocation receipt timestamps are audit metadata, not a way for an old request clock to reopen a committed revocation.
+Verifier `POST /revoke` accepts `{request_id}` under its separate revocation credential, then forwards to the **same destination URL** at `POST /revoke` with `{request_id, store_id}` under the owner's distinct revocation credential. The owner commits the receipt before acknowledgment. The verifier holds no local revocation database. `GET /markers` supports ledger reconciliation; `GET /identity` reports the currently checked store ID and a best-effort filesystem-check result. All HTTP credentials are local research credentials, not a production authentication design.
 
-The engineering test issues a still-unexpired token, records revocation, and then presents the cached token through two separate verifier instances sharing the destination database. Both must return `REVOKED`, and the marker ledger must remain unchanged. This tests the narrow Path 2 claim: stale authority is rejected at the destination regardless of which presenter holds the cached token.
+### Identity and revocation boundary
 
-### Revocation ordering and regression scope
+Marker insertion and revocation commitment use the same destination database connection factory and `BEGIN IMMEDIATE` transactions. The destination rechecks metadata inside each write transaction against its startup pin; effect messages must also supply the matching verifier pin. Missing, invalid, or mismatched metadata refuses effects. Replacing metadata with a different ID after startup is tested and rejected.
 
-The final revocation check and marker insertion share one database transaction. If revocation commits and is acknowledged first, even an already-forwarded or delayed marker request returns `HOLD` with reason `REVOKED`; no marker is inserted. If a marker transaction acquired the writer lock first, revocation waits to commit and acknowledge until that effect has completed. A delayed response for an effect accepted before revocation can arrive after the revocation response; response arrival order is not the effect's linearization order. `REVOKED` remains a reason code, not a seventh execution state.
+If revocation commits and acknowledges first, later marker insertion is rejected with reason `REVOKED`. If a marker transaction acquired the writer lock first, revocation waits before committing and acknowledging. A delayed response for an earlier accepted effect is not a post-revocation effect. Reason codes do not add execution states.
 
-The 100-worker regression pauses all requests after the verifier's early lookup, commits revocation and obtains its receipt, then releases them toward the final marker transaction. All 100 must report `REVOKED` and the ledger must remain empty. A second test holds the marker transaction open and checks that a separate SQLite connection cannot acquire the writer lock before it completes. Process tests also reject direct presentation of a revoked request to the marker service. The challenge script uses the same five-process topology and shared destination file.
+A UUID is binding metadata, **not proof of physical database identity or independent custody**. Byte-for-byte copying also copies the UUID; this mechanism does not detect a same-ID clone, rollback, malicious operator replacement, or a second owner intentionally configured over a cloned database. The supported adapter removes split authority/effect databases within one configured owner service; single-owner deployment remains a precondition. No cross-host/failover or complete destination-enumeration claim is established.
 
-This boundary covers local revocation and marker commitment only. Signature, scope, policy pin, and lease checks still occur in the verifier; the marker bearer credential remains privileged, and direct arbitrary unrevoked writes are not token-verified there. No claim is made that lease expiry or policy rotation is atomic with the final marker transaction. SQLite contention may cause timeouts; uncertain HTTP results still require ledger reconciliation. Keeping the final check inside the marker transaction prevents an HTTP timeout from releasing a verifier-only lock while a delayed remote write continues.
+### Lease boundary and clock
 
-This is still a single-host synthetic implementation. The test does not establish independent custody of the revocation store, trusted clocks, production integration, or that every real enforcement point has been enumerated. A local passing test is not independent validation.
+Verifier and marker use the same `utc_now` clock implementation, injectable in actor tests. The marker samples its clock **after** `BEGIN IMMEDIATE` acquires the writer lock, rechecks signed scope and the lease, and then inserts. The lease is `[not_before, expires_at)`: equality with `not_before` is allowed; equality with `expires_at` is rejected as `EXPIRED_OR_EARLY`. Caller timestamps are not used for final authorization. In separate processes these are local system-clock readings, not a trusted synchronized clock service.
+
+Tests pause a valid request across expiry and across a synthetic clock rollback below not-before; both leave zero markers. Another test expires authority while the final transaction waits for the writer lock. Ordinary early presentation is rejected at the verifier without dispatch. There is no mutable lease-renewal API: the witness issues immutable signed tokens; destination revocation is by request ID and blocks later tokens for that ID. Any future renewal/unrevocation mechanism needs the same destination transaction domain and separate verification.
+
+Lease validity is checked at the sampled authorization point inside the transaction. This is not a hard real-time guarantee that wall-clock expiry cannot occur between sampling and SQLite commit or response delivery. Verifier response timestamps describe its early check; the marker log records the later in-transaction sample, not an independently witnessed commit timestamp.
+
+### Filesystem precondition (best-effort check)
+
+The destination store must be on a **single-host, local filesystem with reliable SQLite locking**. Linux startup checks `/proc/self/mountinfo` and rejects recognized network filesystem types; unavailable inspection, unrecognized mounts, container backing storage, and later mount changes are not certified safe. This is a best-effort rejection check, not verification of the deployment precondition. Do not use network filesystems, cross-host access, or multiple independently copied owner stores under this evidence claim.
+
+### Engineering regressions and evidence
+
+At `f0bfc27be631d44dfd51e7591b2a851f79baddbb`, the initial forms of three boundary probes failed: mismatched stores, a request paused across expiry, and a request paused across clock rollback below not-before all returned `EFFECT_ALLOWED`. The fixtures were adapted to the revised signed destination protocol; see `tests/test_destination_boundaries.py`. The existing 100-paused-request revocation regression remains, as do process wiring and challenge checks. Test definitions alone are not execution evidence; PR #26 records the exact tested revision, commands, environment, local results, and any separately inspected CI test-merge result.
+
+The custodian accepts signed heads via `POST /heads`; `scripts/publish_head.py` publishes them explicitly. A missing or stale externally held head prevents a completeness claim. These are local engineering components, without independent acceptance or production authority.
 
 ## Scope and known limits
 

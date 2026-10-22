@@ -13,13 +13,33 @@ from unittest.mock import patch
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from resona_sandbox.actors import DestinationVerifier, Executor, Marker, Witness
+from resona_sandbox.actors import DestinationVerifier as CoreVerifier, Executor, Marker, Witness
 from resona_sandbox.storage import ContentStore, HeadCustodian, MarkerStore, NonceStore, OpLog, RevocationStore
 from resona_sandbox.wire import Hold, b64, canonical, fingerprint, parse_json, sha, sign_approval, sign_token, approvals_hash
 from resona_sandbox.storage import connect
 
 NOW = datetime(2026, 9, 26, 16, 0, tzinfo=timezone.utc)
 ROLES = ("policy_owner", "domain_adjudicator", "external_validator")
+
+
+class TestClock:
+    def __init__(self, value=NOW):
+        self.value = value
+    def __call__(self):
+        return self.value
+
+
+class DestinationVerifier(CoreVerifier):
+    # Compatibility helper for historical fixtures that specify a test instant.
+    # Production has no caller-supplied now; both checks call the injected clock.
+    def apply(self, action, token, when=None):
+        if when is not None:
+            self.clock.value = when
+        return super().apply(action, token)
+    def revoke(self, request_id, when=None):
+        if when is not None:
+            self.clock.value = when
+        return super().revoke(request_id)
 
 
 class Engineering(unittest.TestCase):
@@ -66,16 +86,25 @@ class Engineering(unittest.TestCase):
         self.marker_log = OpLog(str(self.root / "marker-log.sqlite"), "marker")
         self.executor_log = OpLog(str(self.root / "executor-log.sqlite"), "executor")
         self.verifier_log = OpLog(str(self.root / "verifier-log.sqlite"), "verifier")
+        MarkerStore.initialize(str(self.root / "marker.sqlite"))
         self.marker_store = MarkerStore(str(self.root / "marker.sqlite"))
+        self.clock = TestClock()
         self.nonces = NonceStore(str(self.root / "nonce.sqlite"))
         self.revocations = RevocationStore(str(self.root / "marker.sqlite"))
         self.witness = Witness(self.content, "W1", self.witness_key, self.witness_log, self.policy_hash)
-        self.marker = Marker(self.marker_store, self.marker_log)
+        self.marker = Marker(self.marker_store, self.marker_log, {"W1": self.witness_key.public_key()}, self.policy_hash, self.clock)
         self.executor = Executor(
-            self.nonces, {"W1": self.witness_key.public_key()}, lambda action, token, when: self.marker.write(action, when), self.executor_log, self.policy_hash)
+            self.nonces, {"W1": self.witness_key.public_key()}, lambda action, token, when: self.write_marker(action, when, token), self.executor_log, self.policy_hash)
         self.destination = DestinationVerifier(
             self.revocations, {"W1": self.witness_key.public_key()}, self.marker.write,
-            self.verifier_log, self.policy_hash)
+            self.verifier_log, self.policy_hash, clock=self.clock)
+
+    def write_marker(self, action, when, token=None):
+        self.clock.value = when
+        if token is None:
+            token = self.witness.decide(self.proposal(**action), when)
+        result = self.marker.write(action, token, self.marker_store.store_id)
+        return {k: v for k, v in result.items() if k != "store_id"}
 
     def proposal(self, request_id="R1", **changes):
         action = {
@@ -118,7 +147,7 @@ class Engineering(unittest.TestCase):
             "recorded_at_utc": "2026-09-26T16:00:00Z", "marker_record_id": "R1",
         })
         fresh = Executor(NonceStore(str(self.root / "nonce.sqlite")),
-                         {"W1": self.witness_key.public_key()}, lambda action, token, when: self.marker.write(action, when), self.executor_log, self.policy_hash)
+                         {"W1": self.witness_key.public_key()}, lambda action, token, when: self.write_marker(action, when, token), self.executor_log, self.policy_hash)
         with self.assertRaisesRegex(Hold, "REPLAY"):
             fresh.dispatch(p, token, NOW)
         self.assertEqual(self.marker_store.all(), [("R1", "M1")])
@@ -132,11 +161,11 @@ class Engineering(unittest.TestCase):
         presenter_a = DestinationVerifier(
             RevocationStore(str(self.root / "marker.sqlite")),
             {"W1": self.witness_key.public_key()}, self.marker.write,
-            self.verifier_log, self.policy_hash)
+            self.verifier_log, self.policy_hash, clock=self.clock)
         presenter_b = DestinationVerifier(
             RevocationStore(str(self.root / "marker.sqlite")),
             {"W1": self.witness_key.public_key()}, self.marker.write,
-            self.verifier_log, self.policy_hash)
+            self.verifier_log, self.policy_hash, clock=self.clock)
 
         for verifier in (presenter_a, presenter_b):
             with self.assertRaisesRegex(Hold, "REVOKED"):
@@ -168,17 +197,17 @@ class Engineering(unittest.TestCase):
         ready = threading.Barrier(101, timeout=15)
         release = threading.Event()
 
-        def delayed_marker(action, moment):
+        def delayed_marker(action, token, store_id):
             # All workers have passed the early verifier lookup. Simulate a
             # delayed request reaching the marker after revocation ACK.
             ready.wait()
             if not release.wait(15):
                 raise RuntimeError("marker release timeout")
-            return self.marker.write(action, moment)
+            return self.marker.write(action, token, store_id)
 
         verifiers = [DestinationVerifier(
             self.revocations, {"W1": self.witness_key.public_key()}, delayed_marker,
-            self.verifier_log, self.policy_hash) for _ in range(100)]
+            self.verifier_log, self.policy_hash, clock=self.clock) for _ in range(100)]
 
         def apply(verifier):
             try:
@@ -204,8 +233,8 @@ class Engineering(unittest.TestCase):
         attempted = threading.Event()
         acknowledged = threading.Event()
 
-        def traced_connect(path):
-            db = connect(path)
+        def traced_connect(path, **kwargs):
+            db = connect(path, **kwargs)
             def trace(sql):
                 if sql.startswith("INSERT INTO markers"):
                     inside.set()
@@ -222,7 +251,7 @@ class Engineering(unittest.TestCase):
             return receipt
 
         with patch("resona_sandbox.storage.connect", traced_connect), ThreadPoolExecutor(max_workers=2) as pool:
-            effect = pool.submit(self.marker.write, self.proposal()["action"], NOW)
+            effect = pool.submit(self.write_marker, self.proposal()["action"], NOW)
             try:
                 self.assertTrue(inside.wait(15))
                 # A distinct connection cannot acquire the destination writer
@@ -238,7 +267,7 @@ class Engineering(unittest.TestCase):
             self.assertEqual(effect.result(timeout=15)["request_id"], "R1")
             self.assertEqual(revocation.result(timeout=15)["decision"], "REVOKED")
         with self.assertRaisesRegex(Hold, "REVOKED"):
-            self.marker.write(self.proposal()["action"], NOW)
+            self.write_marker(self.proposal()["action"], NOW)
 
     def test_old_request_time_cannot_bypass_committed_revocation(self):
         p = self.proposal(request_id="old_clock")
@@ -247,7 +276,7 @@ class Engineering(unittest.TestCase):
         with self.assertRaisesRegex(Hold, "REVOKED"):
             self.destination.apply(p["action"], token, NOW + timedelta(seconds=1))
         with self.assertRaisesRegex(Hold, "REVOKED"):
-            self.marker.write(p["action"], NOW)
+            self.write_marker(p["action"], NOW)
         self.assertEqual(self.marker_store.all(), [])
 
     def test_destination_rejects_token_for_wrong_action_scope(self):
@@ -295,7 +324,7 @@ class Engineering(unittest.TestCase):
     def test_concurrent_marker_idempotence(self):
         p = self.proposal()
         with ThreadPoolExecutor(max_workers=8) as pool:
-            results = list(pool.map(lambda _: self.marker.write(p["action"], NOW), range(16)))
+            results = list(pool.map(lambda _: self.write_marker(p["action"], NOW), range(16)))
         self.assertTrue(all(x == {"request_id": "R1", "marker": "M1"} for x in results))
         self.assertEqual(self.marker_store.all(), [("R1", "M1")])
 
@@ -305,7 +334,7 @@ class Engineering(unittest.TestCase):
         executors = [
             Executor(NonceStore(str(self.root / "nonce.sqlite")),
                      {"W1": self.witness_key.public_key()},
-                     lambda action, token, when: self.marker.write(action, when),
+                     lambda action, token, when: self.write_marker(action, when, token),
                      self.executor_log, self.policy_hash)
             for _ in range(2)
         ]
@@ -325,7 +354,7 @@ class Engineering(unittest.TestCase):
         p = self.proposal()
         token = self.witness.decide(p, NOW, nonce="one-token")
         executors = [Executor(NonceStore(str(self.root / f"nonce-{i}.sqlite")),
-                              {"W1": self.witness_key.public_key()}, lambda action, token, when: self.marker.write(action, when),
+                              {"W1": self.witness_key.public_key()}, lambda action, token, when: self.write_marker(action, when, token),
                               self.executor_log, self.policy_hash) for i in range(2)]
         with ThreadPoolExecutor(max_workers=2) as pool:
             results = list(pool.map(lambda e: e.dispatch(p, token, NOW), executors))
@@ -356,7 +385,7 @@ class Engineering(unittest.TestCase):
         replacement = {**self.policy, "version": "v2"}
         new_hash = self.content.put("policy", json.dumps(replacement, sort_keys=True).encode())
         rotated_executor = Executor(self.nonces, {"W1": self.witness_key.public_key()},
-                                    lambda action, token, when: self.marker.write(action, when), self.executor_log, new_hash)
+                                    lambda action, token, when: self.write_marker(action, when, token), self.executor_log, new_hash)
         with self.assertRaisesRegex(Hold, "POLICY_NOT_ACTIVE"):
             rotated_executor.dispatch(old_proposal, old_token, NOW + timedelta(seconds=1))
         self.assertEqual(self.marker_store.all(), [])
@@ -364,6 +393,12 @@ class Engineering(unittest.TestCase):
         rotated_witness = Witness(self.content, "W1", self.witness_key, self.witness_log, new_hash)
         new_proposal = self.proposal(policy_sha256=new_hash)
         new_token = rotated_witness.decide(new_proposal, NOW, nonce="new-policy-token")
+        # Destination pins also require a deliberate update; the old marker
+        # must reject the new policy before that controlled reconfiguration.
+        with self.assertRaisesRegex(Hold, "POLICY_NOT_ACTIVE"):
+            self.marker.write(new_proposal["action"], new_token, self.marker_store.store_id)
+        self.marker = Marker(self.marker_store, self.marker_log,
+                             {"W1": self.witness_key.public_key()}, new_hash, self.clock)
         self.assertEqual(rotated_executor.dispatch(new_proposal, new_token, NOW)["decision"], "DISPATCHED")
         self.assertEqual(self.marker_store.all(), [("R1", "M1")])
 
@@ -371,13 +406,13 @@ class Engineering(unittest.TestCase):
         for bad in (None, "", "A" * 64, "x" * 64):
             with self.assertRaisesRegex(ValueError, "active policy"):
                 Executor(self.nonces, {"W1": self.witness_key.public_key()},
-                         lambda action, token, when: self.marker.write(action, when), self.executor_log, bad)
+                         lambda action, token, when: self.write_marker(action, when, token), self.executor_log, bad)
 
     def test_marker_write_then_lost_ack_requires_reconciliation(self):
         p = self.proposal()
         token = self.witness.decide(p, NOW, nonce="lost-ack")
         def lost_ack(action, token, when):
-            self.marker.write(action, when)
+            self.write_marker(action, when, token)
             raise Hold("MARKER_UNAVAILABLE")
         executor = Executor(self.nonces, {"W1": self.witness_key.public_key()},
                             lost_ack, self.executor_log, self.policy_hash)
@@ -405,12 +440,12 @@ class Engineering(unittest.TestCase):
         backup_path = self.root / "marker-backup.sqlite"
         with sqlite3.connect(self.root / "marker.sqlite") as source, sqlite3.connect(backup_path) as backup:
             source.backup(backup)
-        self.marker.write(self.proposal()["action"], NOW)
+        self.write_marker(self.proposal()["action"], NOW)
         self.assertEqual(self.marker_store.all(), [("R1", "M1")])
         restored = MarkerStore(str(backup_path))
         self.assertEqual(restored.all(), [])
         # This demonstrates a limit, not successful rollback protection.
-        restored.append("R1", "M1")
+        restored.append("R1", "M1", expected_store_id=restored.store_id, authorize=lambda: NOW)
         self.assertEqual(restored.all(), [("R1", "M1")])
 
     def test_same_actor_cannot_fill_two_signed_roles(self):

@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -11,7 +12,7 @@ from urllib import error, request as http
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
 from resona_sandbox.actors import DestinationVerifier, Executor, Marker, Witness, validate_proposal
-from resona_sandbox.storage import ContentStore, HeadCustodian, MarkerStore, NonceStore, OpLog, RevocationStore
+from resona_sandbox.storage import ContentStore, HeadCustodian, MarkerStore, NonceStore, OpLog
 from resona_sandbox.wire import Hold, ID_RE, iso, parse_json
 
 
@@ -34,23 +35,24 @@ def now():
     return datetime.now(timezone.utc)
 
 
-def marker_client(action, moment):
+def destination_request(path, body=None, *, revoke=False):
     base = required("MARKER_URL")
     if not base.startswith("http://127.0.0.1:"):
         raise Hold("INVALID_MARKER_URL")
-    payload = json.dumps(action, sort_keys=True, separators=(",", ":")).encode()
-    req = http.Request(base + "/marker", data=payload,
-                       headers={"Content-Type": "application/json",
-                                "Authorization": "Bearer " + required("MARKER_AUTH_TOKEN")})
+    payload = None if body is None else json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+    credential = required("MARKER_REVOKE_AUTH_TOKEN" if revoke else "MARKER_AUTH_TOKEN")
+    req = http.Request(base + path, data=payload,
+                       headers={"Content-Type": "application/json", "Authorization": "Bearer " + credential})
     try:
         with http.urlopen(req, timeout=3) as response:
             return parse_json(response.read())
     except error.HTTPError as exc:
         if exc.code == 409:
             try:
-                body = parse_json(exc.read())
-                if isinstance(body, dict) and body.get("reason") == "REVOKED":
-                    raise Hold("REVOKED") from exc
+                result = parse_json(exc.read())
+                reason = result.get("reason") if isinstance(result, dict) else None
+                if isinstance(reason, str):
+                    raise Hold(reason) from exc
             except Hold:
                 raise
             except Exception:
@@ -58,6 +60,33 @@ def marker_client(action, moment):
         raise Hold("MARKER_UNAVAILABLE") from exc
     except Exception as exc:
         raise Hold("MARKER_UNAVAILABLE") from exc
+
+
+def marker_client(action, token, store_id):
+    return destination_request("/marker", {"action": action, "token": token, "store_id": store_id})
+
+
+class RemoteRevocations:
+    """No local SQLite path: effects and revocations go to ONE destination URL."""
+    def __init__(self):
+        self.store_id = required("DESTINATION_STORE_ID")
+        for attempt in range(50):
+            try:
+                identity = destination_request("/identity")
+                break
+            except Hold as exc:
+                if exc.code != "MARKER_UNAVAILABLE" or attempt == 49:
+                    raise
+                time.sleep(0.02)
+        if not isinstance(identity, dict) or identity.get("store_id") != self.store_id:
+            raise Hold("STORE_ID_MISMATCH")
+
+    def revoke(self, request_id, ignored_timestamp):
+        result = destination_request("/revoke", {"request_id": request_id, "store_id": self.store_id}, revoke=True)
+        if (not isinstance(result, dict) or result.get("store_id") != self.store_id or
+                result.get("request_id") != request_id or result.get("decision") != "REVOKED"):
+            raise Hold("REVOCATION_RECEIPT_MISMATCH")
+        return result["received_at_utc"]
 
 
 def verifier_client(action, token, moment):
@@ -99,7 +128,13 @@ def main():
     auth = required(role.upper() + "_AUTH_TOKEN")
 
     if role == "marker":
-        actor = Marker(MarkerStore(required("DESTINATION_DB")), OpLog(required("MARKER_LOG_DB"), "marker"))
+        actor = Marker(MarkerStore(required("DESTINATION_DB"), required("DESTINATION_STORE_ID")),
+                       OpLog(required("MARKER_LOG_DB"), "marker"),
+                       {required("WITNESS_KEY_ID"): public("WITNESS_PUBLIC_KEY_FILE")},
+                       required("MARKER_ACTIVE_POLICY_SHA256"))
+        marker_revoke_auth = required("MARKER_REVOKE_AUTH_TOKEN")
+        if marker_revoke_auth == auth:
+            raise SystemExit("Marker effect and revocation tokens must differ")
     elif role == "witness":
         actor = Witness(ContentStore(required("WITNESS_CONTENT_DB"), read_only=True), required("WITNESS_KEY_ID"),
                         private("WITNESS_PRIVATE_KEY_FILE"), OpLog(required("WITNESS_LOG_DB"), "witness"),
@@ -113,7 +148,9 @@ def main():
                          verifier_client, OpLog(required("EXECUTOR_LOG_DB"), "executor"),
                          required("EXECUTOR_ACTIVE_POLICY_SHA256"))
     elif role == "verifier":
-        actor = DestinationVerifier(RevocationStore(required("DESTINATION_DB")),
+        if any(name in os.environ for name in ("DESTINATION_DB", "VERIFIER_REVOCATION_DB", "MARKER_DB")):
+            raise SystemExit("Verifier must not open a destination database; use the destination owner API")
+        actor = DestinationVerifier(RemoteRevocations(),
                                     {required("WITNESS_KEY_ID"): public("WITNESS_PUBLIC_KEY_FILE")},
                                     marker_client, OpLog(required("VERIFIER_LOG_DB"), "verifier"),
                                     required("VERIFIER_ACTIVE_POLICY_SHA256"))
@@ -141,6 +178,8 @@ def main():
                 required_auth = attest_auth
             elif role == "verifier" and self.path == "/revoke":
                 required_auth = revoke_auth
+            elif role == "marker" and self.path == "/revoke":
+                required_auth = marker_revoke_auth
             if self.headers.get("Authorization") != "Bearer " + required_auth:
                 self.respond(403, {"error": "FORBIDDEN"})
                 return
@@ -152,7 +191,16 @@ def main():
             try:
                 body = parse_json(self.rfile.read(length))
                 if role == "marker" and self.path == "/marker":
-                    result = actor.write(body, now())
+                    if not isinstance(body, dict) or set(body) != {"action", "token", "store_id"}:
+                        raise Hold("INVALID_FIELDS")
+                    result = actor.write(body["action"], body["token"], body["store_id"])
+                elif role == "marker" and self.path == "/revoke":
+                    if (not isinstance(body, dict) or set(body) != {"request_id", "store_id"} or
+                            not isinstance(body["request_id"], str) or not ID_RE.fullmatch(body["request_id"])):
+                        raise Hold("INVALID_FIELDS")
+                    stored = actor.revoke(body["request_id"], body["store_id"])
+                    result = {"request_id": body["request_id"], "decision": "REVOKED",
+                              "received_at_utc": stored, "store_id": actor.store.store_id}
                 elif role == "witness" and self.path == "/proposals":
                     validate_proposal(body)
                     actor.log.append({"request_id": body["action"]["request_id"],
@@ -167,13 +215,13 @@ def main():
                 elif role == "verifier" and self.path == "/effect":
                     if not isinstance(body, dict) or set(body) != {"action", "token"}:
                         raise Hold("INVALID_FIELDS")
-                    result = actor.apply(body["action"], body["token"], now())
+                    result = actor.apply(body["action"], body["token"])
                 elif role == "verifier" and self.path == "/revoke":
                     if not isinstance(body, dict) or set(body) != {"request_id"} or (
                         not isinstance(body["request_id"], str) or not ID_RE.fullmatch(body["request_id"])
                     ):
                         raise Hold("INVALID_FIELDS")
-                    result = actor.revoke(body["request_id"], now())
+                    result = actor.revoke(body["request_id"])
                 elif role == "custodian" and self.path == "/heads":
                     actor.accept(body)
                     result = {"accepted": True}
@@ -211,7 +259,12 @@ def main():
             if self.headers.get("Authorization") != "Bearer " + auth:
                 self.respond(403, {"error": "FORBIDDEN"})
                 return
-            if role == "marker" and self.path == "/markers":
+            if role == "marker" and self.path == "/identity":
+                try:
+                    self.respond(200, {"store_id": actor.store.identity(), "filesystem_check": actor.store.filesystem_check})
+                except Hold as exc:
+                    self.respond(409, {"decision": "HOLD", "reason": exc.code})
+            elif role == "marker" and self.path == "/markers":
                 self.respond(200, {"markers": actor.store.all()})
             elif role == "custodian" and self.path.startswith("/heads/"):
                 try:

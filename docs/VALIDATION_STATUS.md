@@ -65,6 +65,18 @@ The repair uses one `DESTINATION_DB` file for marker rows and revocation receipt
 
 The regression definitions cover 100 paused requests released after revocation acknowledgment, writer-lock ordering, stale clocks, and direct revoked-marker presentation. The five-process wiring and challenge script use the shared destination store. See PR #26 for the exact tested commit and execution results; definitions and historical results alone are not a pass at an untested revision. The repair does not establish independent acceptance, production authority, complete destination enumeration, crash/restore durability, or atomic lease/policy checks at the marker. No gates or acceptance milestones are declared passed.
 
+## Destination identity and final lease follow-up (October 21, 2026)
+
+The shared-store precondition was **not startup-enforced at `f0bfc27`**. Follow-up probes reproduced acceptance with split stores and after simulated lease expiry. Those findings limit the earlier passing engineering results to their tested configuration; they do not invalidate the recorded run provenance.
+
+The follow-up repair makes one destination owner serve both revocation and marker writes. Verifier startup refuses a local database-path configuration and binds to the authenticated owner identity. Explicit initialization assigns a UUID to new stores only; existing stores are not migrated. Metadata is rechecked inside final write transactions. UUIDs do not distinguish same-ID byte copies or establish rollback protection; one owner on a single-host local filesystem remains a deployment precondition.
+
+The marker now receives the original signed witness token and pinned store ID. After acquiring `BEGIN IMMEDIATE`, it samples its injected UTC clock and checks identity, signed scope, the static active policy pin, lease bounds, and revocation before inserting. The lease is inclusive at not-before and exclusive at expiry. This sampled in-transaction check is not a hard real-time commit-deadline guarantee. There is no mutable renewal/unrevocation API.
+
+The initial three targeted regression probes failed at `f0bfc27` before source changes; the current fixture adapters reflect the revised protocol. Further tests cover lock-wait expiry, exact not-before, missing/changed metadata, initialization refusal for existing stores, known-network-mount rejection, mismatched startup pins, and rejection of legacy split-path verifier configuration. Linux filesystem inspection is explicitly best-effort and does not verify the deployment precondition.
+
+See PR #26 for exact-revision execution results and separately attributed CI evidence. Neither PR #23 gate, independent acceptance, migration success, nor production acceptance is established by this repair.
+
 ## First meaningful validation milestone
 
 Use one harmless external action in a controlled test environment. Pre-register the policy and evidence schema. Demonstrate that a valid signed request executes exactly once and that missing evidence, expired authority, changed parameters, replay, signer conflicts, and unavailable policy services all hold without execution. Keep independent logs of the gate and external system; reconcile both after the test. Repeat across model versions and after a restart. Publish the test protocol, results, and failures before claiming the control is effective.

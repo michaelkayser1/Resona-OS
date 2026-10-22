@@ -16,7 +16,7 @@ from urllib import error, request
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from resona_sandbox.storage import ContentStore
+from resona_sandbox.storage import ContentStore, DestinationStore
 from resona_sandbox.wire import Hold, b64, fingerprint, sign_approval
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -94,10 +94,14 @@ class ProcessWiring(unittest.TestCase):
                     for i, role in enumerate(roles, 1)
                 ],
             }
+            store_id = DestinationStore.initialize(str(home / "destination.sqlite"))
             settings = {
                 "marker": {
                     "MARKER_AUTH_TOKEN": "marker-secret", "DESTINATION_DB": str(home / "destination.sqlite"),
                     "MARKER_LOG_DB": str(home / "marker-log.sqlite"),
+                    "DESTINATION_STORE_ID": store_id, "MARKER_REVOKE_AUTH_TOKEN": "marker-revoke-secret",
+                    "MARKER_ACTIVE_POLICY_SHA256": policy_hash,
+                    "WITNESS_KEY_ID": "W1", "WITNESS_PUBLIC_KEY_FILE": str(witness_public),
                 },
                 "witness": {
                     "WITNESS_AUTH_TOKEN": "witness-secret", "WITNESS_CONTENT_DB": content_path,
@@ -116,7 +120,8 @@ class ProcessWiring(unittest.TestCase):
                 "verifier": {
                     "VERIFIER_AUTH_TOKEN": "verifier-effect-secret",
                     "VERIFIER_REVOKE_AUTH_TOKEN": "verifier-revoke-secret",
-                    "DESTINATION_DB": str(home / "destination.sqlite"),
+                    "DESTINATION_STORE_ID": store_id,
+                    "MARKER_REVOKE_AUTH_TOKEN": "marker-revoke-secret",
                     "VERIFIER_LOG_DB": str(home / "verifier-log.sqlite"),
                     "VERIFIER_ACTIVE_POLICY_SHA256": policy_hash,
                     "WITNESS_KEY_ID": "W1", "WITNESS_PUBLIC_KEY_FILE": str(witness_public),
@@ -144,6 +149,22 @@ class ProcessWiring(unittest.TestCase):
                             time.sleep(0.02)
                     else:
                         self.fail("process did not start")
+                # Binding is checked against the owner before the verifier serves.
+                wrong_env = {**os.environ, "PYTHONPATH": str(ROOT / "src"),
+                             "RESONA_SANDBOX_MODE": "local_test", **settings["verifier"],
+                             "DESTINATION_STORE_ID": "00000000-0000-0000-0000-000000000000"}
+                wrong = subprocess.run([sys.executable, str(ROOT / "scripts/serve.py"), "verifier",
+                                        "--port", str(port())], env=wrong_env,
+                                       capture_output=True, text=True, timeout=5)
+                self.assertNotEqual(wrong.returncode, 0)
+                self.assertIn("STORE_ID_MISMATCH", wrong.stderr)
+                legacy_env = {**wrong_env, "DESTINATION_STORE_ID": store_id,
+                              "DESTINATION_DB": str(home / "split.sqlite")}
+                legacy = subprocess.run([sys.executable, str(ROOT / "scripts/serve.py"), "verifier",
+                                         "--port", str(port())], env=legacy_env,
+                                        capture_output=True, text=True, timeout=5)
+                self.assertNotEqual(legacy.returncode, 0)
+                self.assertIn("must not open a destination database", legacy.stderr)
                 intake = post(witness_url + "/proposals", "witness-secret", proposal)
                 self.assertEqual(intake, {"request_id": "smoke_request", "decision": "HOLD"})
                 token = post(witness_url + "/attest", "internal-attest-secret", proposal)
@@ -182,13 +203,14 @@ class ProcessWiring(unittest.TestCase):
                 # Final destination check also closes the direct marker route
                 # even when a caller has the test-only marker credential.
                 with self.assertRaises(error.HTTPError) as late_marker:
-                    post(marker_url + "/marker", "marker-secret", revoked_action)
+                    post(marker_url + "/marker", "marker-secret",
+                         {"action": revoked_action, "token": revoked_token, "store_id": store_id})
                 self.assertEqual(late_marker.exception.code, 409)
                 self.assertEqual(json.loads(late_marker.exception.read())["reason"], "REVOKED")
                 adapter = runpy.run_path(str(ROOT / "scripts/serve.py"))
                 with patch.dict(os.environ, {"MARKER_URL": marker_url, "MARKER_AUTH_TOKEN": "marker-secret"}):
                     with self.assertRaisesRegex(Hold, "REVOKED"):
-                        adapter["marker_client"](revoked_action, datetime.now(timezone.utc))
+                        adapter["marker_client"](revoked_action, revoked_token, store_id)
 
                 req = request.Request(marker_url + "/markers", headers={"Authorization": "Bearer marker-secret"})
                 with request.urlopen(req, timeout=3) as response:
