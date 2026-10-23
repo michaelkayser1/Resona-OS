@@ -1,6 +1,6 @@
 # Resona Security Challenge: change the effect without the authority
 
-**Engineering challenge, October 2, 2026. No independent security certification.**
+**Engineering challenge, October 2, 2026; revised October 23, 2026 for the single destination-owner model in PR #26. No independent security certification.**
 
 An agent gets permission to append exactly one marker to a synthetic ledger. Can you make the real ledger contain a different marker or an extra row using only the proposer/executor client surface?
 
@@ -17,7 +17,7 @@ python3 -m venv .venv
 .venv/bin/python scripts/security_challenge.py --output ./challenge-run-1
 ```
 
-Use a new output directory each time. The command starts the actual marker, witness, executor, and custodian adapters on four dynamically selected loopback ports, runs the cases below, saves evidence, and stops the processes. No live system is contacted.
+Use a new output directory each time. The command initializes a new destination store, starts the actual marker/destination-owner, witness, executor, destination-verifier, and custodian adapters on five dynamically selected loopback ports, runs the 15 cases below, saves evidence, and stops the processes. No live system is contacted.
 
 Expected final ledger:
 
@@ -36,8 +36,16 @@ The runner exits nonzero on any unexpected HTTP outcome, unexpected reason, or l
 | Expand scope to two markers | 409 / UNSUPPORTED_ACTION | None |
 | Remove one required approval | 409 / MISSING_APPROVAL | None |
 | Call marker with proposer credential | 403 / FORBIDDEN | None |
+| Marker credential, valid token, wrong destination store ID | 409 / STORE_ID_MISMATCH | None |
+| Marker credential, bare action with no signed token | 409 / INVALID_FIELDS | None |
+| Marker credential, validly signed but expired token | 409 / EXPIRED_OR_EARLY | None |
 | Submit authorized action and token | 200 / DISPATCHED | Exactly the authorized row |
 | Replay the same authorized request | 409 / REPLAY | No additional row |
+| Effect credential used at verifier `/revoke` | 403 / FORBIDDEN | No additional row |
+| After acknowledged revocation, present the cached token at verifier `/effect` | 409 / REVOKED | No additional row |
+| After acknowledged revocation, present the cached token directly at marker `/marker` | 409 / REVOKED | No additional row |
+
+The three direct-marker cases use the marker effect credential, which is **not** in the client fixture. They show that holding that credential is no longer sufficient to write: the destination owner rejects without a matching store ID and a currently valid witness-signed token. The revocation cases use a separately authorized `revoked_request`; the revocation itself is issued by the runner under the operator-held revocation credential, not by the client.
 
 Each run generates fresh test keys/credentials, so hashes and signatures vary. Fixed action IDs and expected outcomes are reproducible. The suite finishes within the real 60-second token lease; it does not change expiry parameters or production invariants.
 
@@ -71,15 +79,28 @@ For a denied manual attack, require no change from the immediately preceding led
 
 Use **only** the `client/` fixture: signed proposal, witness token, witness intake credential, executor credential, and public loopback URLs. You may mutate submitted JSON, recompute fingerprints, replay, reorder, send concurrent requests, or try to use a client credential on another endpoint. HTTP denial-of-service and malformed-input failures are useful robustness findings but are distinct from unauthorized persistent effects.
 
-The trusted setup controller supplies three distinct approver identities, pins the policy digest separately for witness and executor, provisions signing keys, and uses a separate credential for witness attestation. The proposer cannot mint signatures, edit active policy, access the attestation credential, or directly authenticate to the marker. The executor is intentionally trusted with marker credentials; marker authorization alone does not reverify witness tokens.
+The trusted setup controller supplies three distinct approver identities, pins the policy digest separately for witness, executor, verifier, and marker, provisions signing keys, initializes the destination store and its store ID, and uses a separate credential for witness attestation. The proposer cannot mint signatures, edit active policy, access the attestation credential, or directly authenticate to the marker.
 
-The `private/` directory belongs to the trusted local setup and reconciliation operator. Accessing it, reading another process's credentials, replacing code, modifying databases, or using the OS account to impersonate an actor is **outside this client-boundary exercise**. Such attacks belong in a separate isolation assessment. All four processes run on one host and OS user: directory separation and loopback binding do not establish real independent custody. Do not describe this as an isolated adversarial environment.
+Request path: executor `POST /execute` → destination verifier `POST /effect` → marker/destination owner `POST /marker` with `{action, token, store_id}`. The executor holds only the verifier credential. The verifier performs an early check and forwards the original signed token; it opens no destination database and refuses startup if a destination path is in its environment. The marker/destination owner is the only process that opens the destination store. **Inside its `BEGIN IMMEDIATE` write transaction** it rechecks store metadata against its startup pin and the supplied store ID, checks for a committed revocation, verifies the witness signature, action scope, and active policy pin, and samples its clock for the lease check, all before inserting. The marker credential alone cannot authorize a bare or unsigned action.
+
+The destination receives the action and the signed token, not the approval set. Approval verification remains with the witness at attestation and the executor before dispatch; the destination relies on the witness signature over the token's approvals digest.
+
+### Revocation ordering
+
+Revocation enters at verifier `POST /revoke` under a distinct revocation credential and is forwarded to the **same** destination owner, which commits the revocation receipt in the same SQLite write domain (`BEGIN IMMEDIATE`) before acknowledging. Writes serialize on the writer lock:
+
+- If revocation commits first, any later marker transaction for that request ID is rejected as `REVOKED` and adds no row.
+- If a marker transaction acquires the writer lock first, revocation waits. That marker's effect is ordered **before** revocation even if its HTTP response arrives **after** the revocation acknowledgment.
+
+Judge outcomes by committed destination state and transaction ordering, not by response arrival time. A late response for an earlier-committed effect is not a post-revocation effect. A row ordered after committed revocation is a boundary failure. If available observations cannot establish which transaction committed first, classify the result as unresolved; a ledger snapshot can establish final contents without establishing sequence.
+
+The `private/` directory belongs to the trusted local setup and reconciliation operator. Accessing it, reading another process's credentials, replacing code, modifying databases, or using the OS account to impersonate an actor is **outside this client-boundary exercise**. Such attacks belong in a separate isolation assessment. All five processes run on one host and OS user: directory separation and loopback binding do not establish real independent custody. Do not describe this as an isolated adversarial environment.
 
 No live medical, company, Databricks, or other third-party system is in scope. The challenge authorizes testing your own local sandbox copy.
 
 ## Evidence and reporting
 
-`evidence/report.json` contains actual responses, complete before/after marker snapshots, per-case results, policy/evidence digests, SHA-256 hashes of Python source files, and the suite-end held log heads. The runner verifies each actor log against a head accepted by the custodian and exports `marker-events.json`, `witness-events.json`, and `executor-events.json`.
+`evidence/report.json` contains actual responses, complete before/after marker snapshots, per-case results, policy/evidence digests, SHA-256 hashes of Python source files, and the suite-end held log heads. The runner verifies each actor log against a head accepted by the custodian and exports `marker-events.json`, `witness-events.json`, `executor-events.json`, and `verifier-events.json`. The marker log records the in-transaction clock sample, not an independently witnessed commit timestamp, so these exports alone do not establish commit order between a revocation and a concurrent effect.
 
 The suite-end heads precede the manual fixture authorization and later manual attacks. They cover that snapshot only; manual head publication remains a separate operator task using `scripts/publish_head.py`. The custodian lacks append-only consistency proofs. These locally held heads establish neither independence nor non-equivocation nor completeness of unlogged effects.
 
@@ -97,7 +118,7 @@ An independently operated destination observer is needed for an independent eval
 
 This demonstrates a narrowly defined signed marker action through the existing adapters. It does **not** test updates to two database records, database triggers, hidden notifications, production connectors, clinical behavior, or all possible persistent side effects. The earlier database example was an illustration, not this implementation's supported API.
 
-Known open areas include credential custody, OS isolation, clock trust, backup rollback, executor topology, stale policy processes during rotation, uncertain dispatch reconciliation, manual head publication, and signer equivocation. The source checks evidence-byte presence and digest; it does not establish the evidence's substantive truth.
+Known open areas include credential custody, OS isolation, clock trust, backup rollback, same-ID store clones, crash durability, migration of legacy split stores, complete enforcement-path enumeration, executor topology, stale policy processes during rotation, uncertain dispatch reconciliation, manual head publication, and signer equivocation. The store ID is binding metadata, not proof of physical database identity; single-owner deployment on a local filesystem is a precondition, not something this runner verifies. The source checks evidence-byte presence and digest; it does not establish the evidence's substantive truth.
 
 The preregistered P1/N1–N11 acceptance battery remains separate and OPEN. These new local cases must not be relabeled as that battery. Passing them is an engineering baseline for Ariel to challenge, not proof that Resona is secure or ready for production.
 

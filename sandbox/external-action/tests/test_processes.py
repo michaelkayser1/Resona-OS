@@ -1,20 +1,23 @@
 """Loopback process wiring smoke test, not the preregistered acceptance test."""
 import json
 import os
+import runpy
 import socket
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 from urllib import error, request
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from resona_sandbox.storage import ContentStore
-from resona_sandbox.wire import b64, fingerprint, sign_approval
+from resona_sandbox.storage import ContentStore, DestinationStore
+from resona_sandbox.wire import Hold, b64, fingerprint, sign_approval
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -45,10 +48,11 @@ class ProcessWiring(unittest.TestCase):
     def test_separate_processes_and_custodian_head(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
-            marker_port, witness_port, executor_port, custodian_port = [port() for _ in range(4)]
+            marker_port, witness_port, executor_port, verifier_port, custodian_port = [port() for _ in range(5)]
             marker_url = f"http://127.0.0.1:{marker_port}"
             witness_url = f"http://127.0.0.1:{witness_port}"
             executor_url = f"http://127.0.0.1:{executor_port}"
+            verifier_url = f"http://127.0.0.1:{verifier_port}"
             custodian_url = f"http://127.0.0.1:{custodian_port}"
             keys = {str(i): Ed25519PrivateKey.from_private_bytes(bytes([i]) * 32) for i in range(1, 6)}
             witness_private = home / "witness.key"
@@ -90,10 +94,14 @@ class ProcessWiring(unittest.TestCase):
                     for i, role in enumerate(roles, 1)
                 ],
             }
+            store_id = DestinationStore.initialize(str(home / "destination.sqlite"))
             settings = {
                 "marker": {
-                    "MARKER_AUTH_TOKEN": "marker-secret", "MARKER_DB": str(home / "marker.sqlite"),
+                    "MARKER_AUTH_TOKEN": "marker-secret", "DESTINATION_DB": str(home / "destination.sqlite"),
                     "MARKER_LOG_DB": str(home / "marker-log.sqlite"),
+                    "DESTINATION_STORE_ID": store_id, "MARKER_REVOKE_AUTH_TOKEN": "marker-revoke-secret",
+                    "MARKER_ACTIVE_POLICY_SHA256": policy_hash,
+                    "WITNESS_KEY_ID": "W1", "WITNESS_PUBLIC_KEY_FILE": str(witness_public),
                 },
                 "witness": {
                     "WITNESS_AUTH_TOKEN": "witness-secret", "WITNESS_CONTENT_DB": content_path,
@@ -106,8 +114,18 @@ class ProcessWiring(unittest.TestCase):
                     "EXECUTOR_AUTH_TOKEN": "executor-secret", "EXECUTOR_NONCE_DB": str(home / "nonce.sqlite"),
                     "EXECUTOR_ACTIVE_POLICY_SHA256": policy_hash,
                     "EXECUTOR_LOG_DB": str(home / "executor-log.sqlite"), "WITNESS_KEY_ID": "W1",
-                    "WITNESS_PUBLIC_KEY_FILE": str(witness_public), "MARKER_URL": marker_url,
-                    "MARKER_AUTH_TOKEN": "marker-secret",
+                    "WITNESS_PUBLIC_KEY_FILE": str(witness_public), "VERIFIER_URL": verifier_url,
+                    "VERIFIER_AUTH_TOKEN": "verifier-effect-secret",
+                },
+                "verifier": {
+                    "VERIFIER_AUTH_TOKEN": "verifier-effect-secret",
+                    "VERIFIER_REVOKE_AUTH_TOKEN": "verifier-revoke-secret",
+                    "DESTINATION_STORE_ID": store_id,
+                    "MARKER_REVOKE_AUTH_TOKEN": "marker-revoke-secret",
+                    "VERIFIER_LOG_DB": str(home / "verifier-log.sqlite"),
+                    "VERIFIER_ACTIVE_POLICY_SHA256": policy_hash,
+                    "WITNESS_KEY_ID": "W1", "WITNESS_PUBLIC_KEY_FILE": str(witness_public),
+                    "MARKER_URL": marker_url, "MARKER_AUTH_TOKEN": "marker-secret",
                 },
                 "custodian": {
                     "CUSTODIAN_AUTH_TOKEN": "custodian-secret", "CUSTODIAN_DB": str(home / "custodian.sqlite"),
@@ -116,13 +134,13 @@ class ProcessWiring(unittest.TestCase):
             }
             processes = []
             try:
-                for role, selected_port in zip(settings, (marker_port, witness_port, executor_port, custodian_port)):
+                for role, selected_port in zip(settings, (marker_port, witness_port, executor_port, verifier_port, custodian_port)):
                     env = {**os.environ, "PYTHONPATH": str(ROOT / "src"),
                            "RESONA_SANDBOX_MODE": "local_test", **settings[role]}
                     processes.append(subprocess.Popen(
                         [sys.executable, str(ROOT / "scripts/serve.py"), role, "--port", str(selected_port)],
                         env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE))
-                for selected_port in (marker_port, witness_port, executor_port, custodian_port):
+                for selected_port in (marker_port, witness_port, executor_port, verifier_port, custodian_port):
                     for attempt in range(50):
                         try:
                             with socket.create_connection(("127.0.0.1", selected_port), timeout=0.1):
@@ -131,6 +149,22 @@ class ProcessWiring(unittest.TestCase):
                             time.sleep(0.02)
                     else:
                         self.fail("process did not start")
+                # Binding is checked against the owner before the verifier serves.
+                wrong_env = {**os.environ, "PYTHONPATH": str(ROOT / "src"),
+                             "RESONA_SANDBOX_MODE": "local_test", **settings["verifier"],
+                             "DESTINATION_STORE_ID": "00000000-0000-0000-0000-000000000000"}
+                wrong = subprocess.run([sys.executable, str(ROOT / "scripts/serve.py"), "verifier",
+                                        "--port", str(port())], env=wrong_env,
+                                       capture_output=True, text=True, timeout=5)
+                self.assertNotEqual(wrong.returncode, 0)
+                self.assertIn("STORE_ID_MISMATCH", wrong.stderr)
+                legacy_env = {**wrong_env, "DESTINATION_STORE_ID": store_id,
+                              "DESTINATION_DB": str(home / "split.sqlite")}
+                legacy = subprocess.run([sys.executable, str(ROOT / "scripts/serve.py"), "verifier",
+                                         "--port", str(port())], env=legacy_env,
+                                        capture_output=True, text=True, timeout=5)
+                self.assertNotEqual(legacy.returncode, 0)
+                self.assertIn("must not open a destination database", legacy.stderr)
                 intake = post(witness_url + "/proposals", "witness-secret", proposal)
                 self.assertEqual(intake, {"request_id": "smoke_request", "decision": "HOLD"})
                 token = post(witness_url + "/attest", "internal-attest-secret", proposal)
@@ -144,6 +178,40 @@ class ProcessWiring(unittest.TestCase):
                 with self.assertRaises(error.HTTPError) as forbidden:
                     post(marker_url + "/marker", "witness-secret", action)
                 self.assertEqual(forbidden.exception.code, 403)
+                revoked_action = {**action, "request_id": "revoked_request", "marker": "revoked_marker"}
+                revoked_fp = fingerprint(revoked_action)
+                revoked_proposal = {
+                    "schema_version": "0.1", "action": revoked_action, "action_fingerprint": revoked_fp,
+                    "approvals": [
+                        sign_approval({"role": role, "actor_id": "A" + str(i),
+                                       "key_id": "K" + str(i), "action_fingerprint": revoked_fp}, keys[str(i)])
+                        for i, role in enumerate(roles, 1)
+                    ],
+                }
+                revoked_token = post(witness_url + "/attest", "internal-attest-secret", revoked_proposal)
+                revoke_receipt = post(verifier_url + "/revoke", "verifier-revoke-secret",
+                                      {"request_id": "revoked_request"})
+                self.assertEqual(revoke_receipt["decision"], "REVOKED")
+                for _ in range(2):
+                    with self.assertRaises(error.HTTPError) as stale:
+                        post(verifier_url + "/effect", "verifier-effect-secret",
+                             {"action": revoked_action, "token": revoked_token})
+                    self.assertEqual(stale.exception.code, 409)
+                    stale_body = json.loads(stale.exception.read())
+                    self.assertEqual(stale_body["reason"], "REVOKED")
+
+                # Final destination check also closes the direct marker route
+                # even when a caller has the test-only marker credential.
+                with self.assertRaises(error.HTTPError) as late_marker:
+                    post(marker_url + "/marker", "marker-secret",
+                         {"action": revoked_action, "token": revoked_token, "store_id": store_id})
+                self.assertEqual(late_marker.exception.code, 409)
+                self.assertEqual(json.loads(late_marker.exception.read())["reason"], "REVOKED")
+                adapter = runpy.run_path(str(ROOT / "scripts/serve.py"))
+                with patch.dict(os.environ, {"MARKER_URL": marker_url, "MARKER_AUTH_TOKEN": "marker-secret"}):
+                    with self.assertRaisesRegex(Hold, "REVOKED"):
+                        adapter["marker_client"](revoked_action, revoked_token, store_id)
+
                 req = request.Request(marker_url + "/markers", headers={"Authorization": "Bearer marker-secret"})
                 with request.urlopen(req, timeout=3) as response:
                     self.assertEqual(json.load(response)["markers"], [["smoke_request", "smoke_marker"]])
@@ -157,7 +225,8 @@ class ProcessWiring(unittest.TestCase):
                 req = request.Request(custodian_url + "/heads/witness",
                                       headers={"Authorization": "Bearer custodian-secret"})
                 with request.urlopen(req, timeout=3) as response:
-                    self.assertEqual(json.load(response)["count"], "2")
+                    # Intake plus two separate attestations are three events.
+                    self.assertEqual(json.load(response)["count"], "3")
             finally:
                 for process in processes:
                     process.terminate()

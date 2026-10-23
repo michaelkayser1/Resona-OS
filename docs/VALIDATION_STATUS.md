@@ -43,6 +43,40 @@ The decisive capability test is verifier-side rejection, not an operator report 
 
 This is a protocol addition only. The current repository does **not** thereby implement revocation, key destruction, destination-side policy enforcement, or independent custody. See [Clean Exit Stress Test — Partial Execution (Rev. 2)](CLEAN_EXIT_STRESS_TEST_REV2.md).
 
+## Path 2 implementation status (October 19, 2026)
+
+The external-action sandbox now contains a **synthetic destination-side revocation verifier** for the Clean Exit Path 2 probe. The executor path is routed through the verifier before the marker effect. The verifier maintains a separate revocation-receipt store, rechecks the signed witness token, action fingerprint, active policy pin, lease boundary, and revocation state at the effect boundary, and only then may call the marker service.
+
+Engineering tests have been added for:
+
+- cached-token presentation after revocation from two verifier instances sharing the verifier-owned revocation store;
+- separation of revocation and expiry boundaries;
+- action-scope mismatch at the destination verifier;
+- five-process loopback wiring in which the executor no longer holds the marker credential; and
+- direct stale-token presentation to the verifier after a recorded revocation.
+
+**Evidence status:** implementation and test definitions are present in source. Their successful execution has **not been established in this status record**. This is not independent validation, not production authority, and not evidence that all real enforcement points are enumerated. The revocation database, clocks, verifier process, and marker process remain local engineering components without independent custody.
+
+## Path 2 serialization repair (October 21, 2026)
+
+The earlier evidence record is historical: at `b168757c518197af12da0d00900566c70a3b318d`, Actions run 39274347667 ran 22 tests on test-merge `74c84d58954f366b9c44c23f2582455b343b23b5`, with one process-test failure (witness head count 3 versus expected 2). A local paused-effect diagnostic also reproduced a marker write after revocation acknowledgment.
+
+The repair uses one `DESTINATION_DB` file for marker rows and revocation receipts. Both revocation commitment and the marker's final receipt check/write use SQLite writer transactions. Revocation acknowledged first prevents a later marker commit; a marker transaction already holding the writer lock completes before revocation can acknowledge. Receipt existence rejects stale caller clocks. Delayed responses are not evidence of delayed effect commitment.
+
+The regression definitions cover 100 paused requests released after revocation acknowledgment, writer-lock ordering, stale clocks, and direct revoked-marker presentation. The five-process wiring and challenge script use the shared destination store. See PR #26 for the exact tested commit and execution results; definitions and historical results alone are not a pass at an untested revision. The repair does not establish independent acceptance, production authority, complete destination enumeration, crash/restore durability, or atomic lease/policy checks at the marker. No gates or acceptance milestones are declared passed.
+
+## Destination identity and final lease follow-up (October 21, 2026)
+
+The shared-store precondition was **not startup-enforced at `f0bfc27`**. Follow-up probes reproduced acceptance with split stores and after simulated lease expiry. Those findings limit the earlier passing engineering results to their tested configuration; they do not invalidate the recorded run provenance.
+
+The follow-up repair makes one destination owner serve both revocation and marker writes. Verifier startup refuses a local database-path configuration and binds to the authenticated owner identity. Explicit initialization assigns a UUID to new stores only; existing stores are not migrated. Metadata is rechecked inside final write transactions. UUIDs do not distinguish same-ID byte copies or establish rollback protection; one owner on a single-host local filesystem remains a deployment precondition.
+
+The marker now receives the original signed witness token and pinned store ID. After acquiring `BEGIN IMMEDIATE`, it samples its injected UTC clock and checks identity, signed scope, the static active policy pin, lease bounds, and revocation before inserting. The lease is inclusive at not-before and exclusive at expiry. This sampled in-transaction check is not a hard real-time commit-deadline guarantee. There is no mutable renewal/unrevocation API.
+
+The initial three targeted regression probes failed at `f0bfc27` before source changes; the current fixture adapters reflect the revised protocol. Further tests cover lock-wait expiry, exact not-before, missing/changed metadata, initialization refusal for existing stores, known-network-mount rejection, mismatched startup pins, and rejection of legacy split-path verifier configuration. Linux filesystem inspection is explicitly best-effort and does not verify the deployment precondition.
+
+See PR #26 for exact-revision execution results and separately attributed CI evidence. Neither PR #23 gate, independent acceptance, migration success, nor production acceptance is established by this repair.
+
 ## First meaningful validation milestone
 
 Use one harmless external action in a controlled test environment. Pre-register the policy and evidence schema. Demonstrate that a valid signed request executes exactly once and that missing evidence, expired authority, changed parameters, replay, signer conflicts, and unavailable policy services all hold without execution. Keep independent logs of the gate and external system; reconcile both after the test. Repeat across model versions and after a restart. Publish the test protocol, results, and failures before claiming the control is effective.
