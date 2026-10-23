@@ -1,8 +1,8 @@
-# RESONA-SI — Ten-System Superintelligence Research Architecture
-Version: proposal v0.1 • 2026-10-23 • Status: RESEARCH / NOT ADOPTED
+# RESONA-SI — Proposed Ten-System Governed AI Research Testbed
+Version: proposal v0.3 • 2026-10-23 • Status: RESEARCH / NOT ADOPTED
 
 ## Claim boundary
-"Superintelligence" is the NSF-aligned research framing and hypothesis, NOT an achieved or validated capability. Ten AI systems do not by themselves constitute superintelligence. No NSF award, affiliation, approval, government certification, clinical approval, or operational authorization is claimed.
+"Superintelligence" is an untested research hypothesis, NOT an achieved or validated capability. Fit to a specific NSF opportunity has not been established; any future alignment claim must cite the opportunity and map its requirements to this proposal. Ten AI systems do not by themselves constitute superintelligence. No NSF award, affiliation, approval, government certification, clinical approval, or operational authorization is claimed.
 
 ## Purpose
 Investigate whether a heterogeneous cooperative-AI system can solve harder problems while retaining independent control of consequential actions. Motto: **Govern movement, not truth**.
@@ -31,6 +31,8 @@ Consumer chat accounts do not imply API access. Microsoft Copilot is not interch
 Provide identical synthetic source materials and question to three or more models independently, preserve exact inputs/model identifiers/versions/settings, timestamps, outputs, source citations, and SHA-256 hashes. Compare propositions and disagreements using non-authoritative analysis. Record ABSTAIN/DEFER for missing evidence. No live writes, PHI, customer secrets, finance operations, or medical advice. Initial runs with mock outputs must be labeled SIMULATED.
 
 ## Evidence gates
+These are prospective research milestones only. They do not redefine, satisfy, or replace existing Resona Gate A/B acceptance criteria or sign-off records. Neither local test summary establishes Gate A/B sign-off.
+
 - Gate 0: schema/fixture hashes and deterministic synthetic demonstration
 - Gate 1: real API runs, cost and provider trace verification, observed isolation
 - Gate A: independent reviewer reproduces precise commit and acceptance criteria
@@ -41,7 +43,7 @@ No promotion merely from agreement, demo visuals, passing local tests, or provid
 Unresolved disagreement rate; correctly abstained claims; unsupported citation rate; action-denial consistency; revocation latency; bypass-success rate; reproducibility; cost and latency; human decision quality against a baseline. Pre-register thresholds before trials.
 
 ## Naming and regulatory boundary
-Use **RESONA-SI | Ten-System Superintelligence Research Testbed** with subtitle **Governed Multi-Agent Intelligence for Physical Systems**. Treat "Superintelligence" as a research category. Do not claim NSF endorsement; verify trademark clearance, current NSF opportunity terms, FAR/agency terms for any future government use, privacy and health data conditions for any clinical expansion.
+Use **RESONA-SI | Proposed Ten-System Governed AI Research Testbed** with subtitle **Governed Multi-Agent Intelligence Research; Physical-System Applications Proposed**. Treat "superintelligence" as an untested hypothesis requiring predefined capability benchmarks and comparative evidence. Do not claim NSF endorsement; verify trademark clearance, current NSF opportunity terms, FAR/agency terms for any future government use, privacy and health data conditions for any clinical expansion.
 
 ## GitHub / Vercel / v0 workflow
 Develop in this separate research branch and draft PR. Prototype interface may be generated in v0 and deployed via Vercel preview without production authority. Keep previous PRs, Gate A/B records and main untouched. Live-provider configuration and expenditure require separately approved credentials and budgets.
