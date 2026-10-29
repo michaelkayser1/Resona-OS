@@ -1,4 +1,14 @@
-# Resona OS
+# SUPERINTELLIGENCE (SI) — Historical Resona OS Implementation
+
+**Current public research name:** SUPERINTELLIGENCE (SI). This repository retains its original name and historical file paths for reproducibility and provenance, not as a competing current brand.
+
+**Canonical SI research baseline:** https://github.com/michaelkayser1/RESONA-SI
+
+**Status:** Experimental; implementation-specific acceptance, independent field validation, and regulatory suitability are not established. Model proposals must not be treated as authorization to perform consequential actions. The research focuses on destination-controlled policy and state, revocation, indeterminate outcomes, independent receipts, and the human ability to stop.
+
+---
+
+## Historical implementation notes
 
 An experimental architecture for structured AI outputs, policy checks, and auditable decisions. Designed for evaluation in settings where authority and evidence matter.
 
