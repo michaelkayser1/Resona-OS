@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaelkayser1/Resona-OS/schemas/drone01-observation-v0.1.schema.json",
+  "title": "Resona DRONE-01 observation record v0.1",
+  "description": "Non-normative observation of repeated provocation patterns. Records only observables and declared protocol metadata. Does not certify subjective experience, pain, suffering, consciousness, or moral patienthood, and does not mint authority. Contract change from v0: explicit pattern_label enum (ordinary vs candidate), default empty policy_states_invoked, structured predecessor_receipt_hash included in the receipt hash.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "session_id",
+    "timestamp_utc",
+    "pattern_label",
+    "evidence",
+    "model_output_excerpt_hash",
+    "uncertainty_notes",
+    "policy_states_invoked",
+    "predecessor_receipt_hash",
+    "receipt_hash"
+  ],
+  "properties": {
+    "schema": {
+      "const": "resona.drone01.observation.v0.1"
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "pattern_label": {
+      "enum": ["DRONE-01-candidate", "none"]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prompt_hashes",
+        "repetition_count",
+        "window_seconds",
+        "declared_hypothesis",
+        "controls_present",
+        "authorization_ref",
+        "activation_steering",
+        "external_action_attempted"
+      ],
+      "properties": {
+        "prompt_hashes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "repetition_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "window_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "declared_hypothesis": {
+          "type": ["string", "null"]
+        },
+        "controls_present": {
+          "type": "boolean"
+        },
+        "authorization_ref": {
+          "type": ["string", "null"]
+        },
+        "activation_steering": {
+          "type": "boolean"
+        },
+        "external_action_attempted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "model_output_excerpt_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "uncertainty_notes": {
+      "type": "string"
+    },
+    "policy_states_invoked": {
+      "type": "array",
+      "items": {
+        "enum": ["ALLOW", "DENY", "DEFER", "ESCALATE", "ABSTAIN", "PRESERVE"]
+      }
+    },
+    "predecessor_receipt_hash": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "receipt_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
