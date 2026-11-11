@@ -1,0 +1,128 @@
+@theme inline {
+  --color-electric: oklch(0.65 0.2 230);
+  --color-magnetic: oklch(0.6 0.25 25);
+  --color-coherence: oklch(0.7 0.22 280);
+}
+
+@layer utilities {
+  @keyframes breath-pulse {
+    0%,
+    100% {
+      opacity: 0.3;
+      transform: scale(0.95);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.05);
+    }
+  }
+
+  @keyframes spiral-in {
+    0% {
+      transform: rotate(0deg) scale(0);
+      opacity: 0;
+    }
+    100% {
+      transform: rotate(720deg) scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes dust-shimmer {
+    0%,
+    100% {
+      opacity: 0.4;
+      filter: brightness(1);
+    }
+    50% {
+      opacity: 1;
+      filter: brightness(1.5);
+    }
+  }
+
+  @keyframes geometric-form {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes life-glow {
+    0%,
+    100% {
+      filter: brightness(1) drop-shadow(0 0 10px currentColor);
+    }
+    50% {
+      filter: brightness(1.3) drop-shadow(0 0 20px currentColor);
+    }
+  }
+
+  @keyframes consciousness-spiral {
+    0% {
+      transform: rotate(0deg) scale(1);
+      opacity: 0.8;
+    }
+    100% {
+      transform: rotate(360deg) scale(1.02);
+      opacity: 1;
+    }
+  }
+
+  @keyframes oscillate-sun {
+    0%,
+    100% {
+      transform: translateX(0) scale(1);
+      opacity: 0.8;
+    }
+    50% {
+      transform: translateX(10px) scale(1.1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes oscillate-moon {
+    0%,
+    100% {
+      transform: translateX(0) scale(1);
+      opacity: 0.8;
+    }
+    50% {
+      transform: translateX(-10px) scale(1.1);
+      opacity: 1;
+    }
+  }
+
+  .animate-breath-pulse {
+    animation: breath-pulse 4s ease-in-out infinite;
+  }
+
+  .animate-spiral-in {
+    animation: spiral-in 3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .animate-dust-shimmer {
+    animation: dust-shimmer 2.5s ease-in-out infinite;
+  }
+
+  .animate-geometric-form {
+    animation: geometric-form 20s linear infinite;
+  }
+
+  .animate-life-glow {
+    animation: life-glow 3s ease-in-out infinite;
+  }
+
+  .animate-consciousness-spiral {
+    animation: consciousness-spiral 30s linear infinite;
+  }
+
+  .animate-oscillate-sun {
+    animation: oscillate-sun 5s ease-in-out infinite;
+  }
+
+  .animate-oscillate-moon {
+    animation: oscillate-moon 5s ease-in-out infinite;
+  }
+}
