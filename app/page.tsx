@@ -13,6 +13,8 @@ class CosmicAudioAnalyzer {
     this.audioContext = null
     this.analyser = null
     this.microphone = null
+    this.stream = null
+    this.disposed = false
     this.dataArray = null
     this.isActive = false
     this.onsetDetector = new AdvancedOnsetDetector()
@@ -35,6 +37,11 @@ class CosmicAudioAnalyzer {
         },
       })
 
+      if (this.disposed) {
+        stream.getTracks().forEach((track) => track.stop())
+        return false
+      }
+      this.stream = stream
       this.microphone = this.audioContext.createMediaStreamSource(stream)
       this.analyser = this.audioContext.createAnalyser()
       this.analyser.fftSize = 4096
@@ -50,6 +57,7 @@ class CosmicAudioAnalyzer {
       return true
     } catch (error) {
       console.error("Audio initialization failed:", error)
+      this.dispose()
       return false
     }
   }
@@ -210,6 +218,10 @@ class CosmicAudioAnalyzer {
   }
 
   dispose() {
+    if (this.disposed) return
+    this.disposed = true
+    this.stream?.getTracks().forEach((track) => track.stop())
+    this.stream = null
     if (this.binaural) {
       try {
         this.binaural.left.stop()
@@ -224,7 +236,9 @@ class CosmicAudioAnalyzer {
     }
 
     if (this.microphone) this.microphone.disconnect()
-    if (this.audioContext) this.audioContext.close()
+    if (this.audioContext && this.audioContext.state !== "closed") {
+      void this.audioContext.close().catch((error) => console.error("Audio cleanup failed:", error))
+    }
     this.isActive = false
   }
 }
@@ -305,7 +319,7 @@ class CosmicPitchDetector {
 
     if (maxAmplitude < 50) {
       this.confidence = Math.max(this.confidence - 0.1, 0)
-      return this.previousPitch
+      return 0
     }
 
     const pitch = maxIndex * binSize
@@ -315,7 +329,7 @@ class CosmicPitchDetector {
       return pitch
     }
     this.confidence = Math.max(this.confidence - 0.05, 0)
-    return this.previousPitch
+    return 0
   }
 }
 
@@ -563,8 +577,15 @@ function useCosmicAudioAnalysis() {
 
   const startAudio = async () => {
     try {
-      analyzerRef.current = new CosmicAudioAnalyzer()
-      const success = await analyzerRef.current.initialize()
+      if (analyzerRef.current) return
+      const analyzer = new CosmicAudioAnalyzer()
+      analyzerRef.current = analyzer
+      const success = await analyzer.initialize()
+      if (analyzerRef.current !== analyzer) return
+      if (!success) {
+        analyzerRef.current = null
+        return
+      }
 
       if (success) {
         setIsActive(true)
@@ -576,7 +597,7 @@ function useCosmicAudioAnalysis() {
   }
 
   const analyzeAudio = () => {
-    if (!analyzerRef.current) return
+    if (!analyzerRef.current?.isActive) return
 
     const analysis = analyzerRef.current.getCosmicAnalysis()
 
@@ -606,6 +627,7 @@ function useCosmicAudioAnalysis() {
     }
     if (analyzerRef.current) {
       analyzerRef.current.dispose()
+      analyzerRef.current = null
     }
     setIsActive(false)
     setAudioData({
@@ -629,6 +651,7 @@ function useCosmicAudioAnalysis() {
       }
       if (analyzerRef.current) {
         analyzerRef.current.dispose()
+        analyzerRef.current = null
       }
     }
   }, [])
@@ -638,7 +661,16 @@ function useCosmicAudioAnalysis() {
 
 function CosmicSpiralCanvas({ audioData, weather }) {
   const canvasRef = useRef(null)
-  const spiralsRef = useRef([])
+  const spiralsRef = useRef<CosmicSpiral[]>([])
+  const gestureRef = useRef<{
+    id: number
+    startX: number
+    startY: number
+    x: number
+    y: number
+    spiral?: CosmicSpiral
+    dragged: boolean
+  } | null>(null)
   const animationRef = useRef()
   const lastActivityRef = useRef(Date.now())
   const onsetCountRef = useRef(0)
@@ -744,6 +776,13 @@ function CosmicSpiralCanvas({ audioData, weather }) {
         }
       })
 
+      for (const spiral of spiralsRef.current) {
+        ctx.beginPath()
+        ctx.fillStyle = spiral.color
+        ctx.arc(spiral.centerX, spiral.centerY, 5, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
       // Draw hidden message
       if (showHiddenMessage) {
         ctx.fillStyle = "rgba(100, 200, 255, 0.7)"
@@ -767,8 +806,6 @@ function CosmicSpiralCanvas({ audioData, weather }) {
       animationRef.current = requestAnimationFrame(animate)
     }
 
-    animate()
-
     const findNearestSpiral = (x, y) => {
       let nearest = null
       let minDistance = Number.POSITIVE_INFINITY
@@ -784,46 +821,96 @@ function CosmicSpiralCanvas({ audioData, weather }) {
       return nearest
     }
 
-    const handleClick = (e) => {
-      const rect = canvas.getBoundingClientRect()
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
-
-      createSpiral(x, y)
-      lastActivityRef.current = Date.now()
-    }
-
-    const createSpiral = (x, y) => {
-      // Weather-adaptive colors
-      const colors = ["#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#98D8C8"]
-
-      if (weather?.condition === "sunny") {
-        colors.push("#FFD93D", "#FF6B6B", "#4ECDC4")
-      } else if (weather?.condition === "stormy") {
-        colors.push("#6C5CE7", "#A29BFE", "#74B9FF")
-      }
-
-      const color = colors[Math.floor(Math.random() * colors.length)]
-      const spiral = new CosmicSpiral(x, y, color, Date.now().toString(), weather)
-      spiralsRef.current.push(spiral)
-    }
-
-    canvas.addEventListener("click", handleClick)
+    animate()
 
     return () => {
       window.removeEventListener("resize", resizeCanvas)
-      canvas.removeEventListener("click", handleClick)
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current)
       }
     }
   }, [audioData, weather, showHiddenMessage, secretUnlocked])
 
+  const createSpiral = (x: number, y: number) => {
+    const colors = ["#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#98D8C8"]
+    if (weather?.condition === "sunny") colors.push("#FFD93D", "#FF6B6B", "#4ECDC4")
+    if (weather?.condition === "stormy") colors.push("#6C5CE7", "#A29BFE", "#74B9FF")
+
+    const color = colors[Math.floor(Math.random() * colors.length)]
+    const spiral = new CosmicSpiral(x, y, color, Date.now().toString(), weather)
+    spiralsRef.current.push(spiral)
+    return spiral
+  }
+
+  const position = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top }
+  }
+
+  const startGesture = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!event.isPrimary || event.button !== 0 || gestureRef.current) return
+    const { x, y } = position(event)
+    const spiral = [...spiralsRef.current].reverse().find((item) => item.isNear(x, y, 24))
+    event.currentTarget.setPointerCapture(event.pointerId)
+    gestureRef.current = { id: event.pointerId, startX: x, startY: y, x, y, spiral, dragged: false }
+    lastActivityRef.current = Date.now()
+  }
+
+  const moveGesture = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const gesture = gestureRef.current
+    if (!gesture || gesture.id !== event.pointerId) return
+    const { x, y } = position(event)
+    if (!gesture.dragged && Math.hypot(x - gesture.startX, y - gesture.startY) < 8) return
+    gesture.dragged = true
+    const spiral = gesture.spiral ??= createSpiral(gesture.startX, gesture.startY)
+    const dx = x - gesture.x
+    const dy = y - gesture.y
+    spiral.centerX += dx
+    spiral.centerY += dy
+    for (const point of spiral.points) {
+      point.x += dx
+      point.y += dy
+    }
+    for (const particle of spiral.dustParticles) {
+      particle.x += dx
+      particle.y += dy
+    }
+    gesture.x = x
+    gesture.y = y
+    lastActivityRef.current = Date.now()
+  }
+
+  const clearGesture = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (gestureRef.current?.id === event.pointerId) gestureRef.current = null
+  }
+
+  const finishGesture = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const gesture = gestureRef.current
+    if (!gesture || gesture.id !== event.pointerId) return
+    const { x, y } = position(event)
+    const canvas = event.currentTarget
+    if (!gesture.dragged && x >= 0 && y >= 0 && x < canvas.clientWidth && y < canvas.clientHeight) {
+      if (gesture.spiral) {
+        const child = gesture.spiral.split()
+        if (child) spiralsRef.current.push(child)
+      } else {
+        createSpiral(x, y)
+      }
+    }
+    clearGesture(event)
+  }
+
   return (
     <div className="relative">
       <canvas
         ref={canvasRef}
-        className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-800 rounded-lg cursor-crosshair"
+        aria-label="Spiral canvas"
+        onPointerDown={startGesture}
+        onPointerMove={moveGesture}
+        onPointerUp={finishGesture}
+        onPointerCancel={clearGesture}
+        onLostPointerCapture={clearGesture}
+        className="w-full h-full touch-none bg-gradient-to-br from-slate-900 to-slate-800 rounded-lg cursor-crosshair"
         style={{ minHeight: "500px" }}
       />
       {secretUnlocked && (
@@ -936,7 +1023,7 @@ function WeatherDisplay() {
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           {getWeatherIcon(weather.condition)}
-          Weather Ambience
+          Simulated Weather Ambience
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -1012,7 +1099,7 @@ export default function CosmicCreativePlayground() {
 
                 <Button
                   onClick={isActive ? stopAudio : startAudio}
-                  className={isActive ? "cosmic-button-active" : "cosmic-button"}
+                  className={`min-h-11 ${isActive ? "cosmic-button-active" : "cosmic-button"}`}
                 >
                   {isActive ? "Stop Audio" : "Start Audio"}
                 </Button>
@@ -1046,17 +1133,17 @@ export default function CosmicCreativePlayground() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 bg-slate-800/50">
-            <TabsTrigger value="spiral" className="cosmic-tab">
+          <TabsList className="grid h-auto w-full grid-cols-2 bg-slate-800/50 sm:grid-cols-4">
+            <TabsTrigger value="spiral" className="cosmic-tab min-h-11">
               🌀 Spiral Canvas
             </TabsTrigger>
-            <TabsTrigger value="audio" className="cosmic-tab">
+            <TabsTrigger value="audio" className="cosmic-tab min-h-11">
               🎵 Audio Lab
             </TabsTrigger>
-            <TabsTrigger value="memory" className="cosmic-tab">
+            <TabsTrigger value="memory" className="cosmic-tab min-h-11">
               🧠 Memory Palace
             </TabsTrigger>
-            <TabsTrigger value="about" className="cosmic-tab">
+            <TabsTrigger value="about" className="cosmic-tab min-h-11">
               ℹ️ About
             </TabsTrigger>
           </TabsList>
@@ -1066,8 +1153,7 @@ export default function CosmicCreativePlayground() {
               <CardHeader>
                 <CardTitle className="text-cyan-400">🌀 Interactive Cosmic Spiral Canvas</CardTitle>
                 <CardDescription>
-                  Click to create spirals • Hum to make them glow • Double-hum to split • Hold 432Hz/528Hz/369Hz for
-                  secrets
+                  Tap empty space to create a spiral. Drag to move it or tap its center to split it. Hum to make spirals glow.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1174,7 +1260,7 @@ export default function CosmicCreativePlayground() {
                 <div className="space-y-3">
                   <h4 className="font-semibold text-amber-400">🎮 How to Play:</h4>
                   <ul className="space-y-2 text-slate-300 text-sm">
-                    <li>• Click anywhere on the spiral canvas to create new spirals</li>
+                    <li>• Tap empty space to create a spiral. Drag to move it or tap its center to split it.</li>
                     <li>• Hum or make sounds to make spirals glow and wiggle</li>
                     <li>• Make two quick sounds to split the nearest spiral</li>
                     <li>• Hold specific frequencies (432Hz, 528Hz, 369Hz) to unlock secrets</li>
@@ -1194,3 +1280,4 @@ export default function CosmicCreativePlayground() {
     </div>
   )
 }
+
