@@ -423,12 +423,27 @@ export default function MemoryPalace() {
   const [isLoading, setIsLoading] = useState(false)
   const [newMemoryTitle, setNewMemoryTitle] = useState("")
   const [newMemoryContent, setNewMemoryContent] = useState("")
+  const [memoryError, setMemoryError] = useState("")
+  const [decryptedContent, setDecryptedContent] = useState("")
+
+  useEffect(() => {
+    let cancelled = false
+    setDecryptedContent("")
+    if (!selectedMemory?.encrypted || !passphrase) return
+    setDecryptedContent("Decrypting...")
+    CryptoUtils.decryptText(selectedMemory.content, passphrase).then(
+      (content) => { if (!cancelled) setDecryptedContent(content) },
+      () => { if (!cancelled) setDecryptedContent("Failed to decrypt - check passphrase") },
+    )
+    return () => { cancelled = true }
+  }, [selectedMemory, passphrase])
 
   const addMemory = async () => {
     if (!newMemoryTitle.trim()) return
+    setMemoryError("")
 
     const memory: Memory = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       title: newMemoryTitle,
       content: newMemoryContent || "A creative thought captured in time...",
       x: (Math.random() - 0.5) * 20,
@@ -447,10 +462,12 @@ export default function MemoryPalace() {
         memory.encrypted = true
       } catch (error) {
         console.error("Failed to encrypt memory:", error)
+        setMemoryError("Encryption failed. Memory was not added. Try again or export your existing memories.")
+        return
       }
     }
 
-    setMemories([...memories, memory])
+    setMemories((previous) => [...previous, memory])
     setNewMemoryTitle("")
     setNewMemoryContent("")
   }
@@ -532,17 +549,6 @@ export default function MemoryPalace() {
     reader.readAsText(file)
   }
 
-  const decryptMemory = async (memory: Memory) => {
-    if (!memory.encrypted || !passphrase) return memory.content
-
-    try {
-      return await CryptoUtils.decryptText(memory.content, passphrase)
-    } catch (error) {
-      console.error("Decryption failed:", error)
-      return "Failed to decrypt - check passphrase"
-    }
-  }
-
   const clearAllMemories = () => {
     if (confirm("Clear all memories? This cannot be undone.")) {
       setMemories([])
@@ -554,6 +560,11 @@ export default function MemoryPalace() {
 
   return (
     <div className="space-y-4">
+      <p className="text-sm text-slate-400">
+        Memories are temporary and reset when this panel closes or the page reloads. Export to keep a copy.
+        An optional passphrase encrypts content only; titles, positions, tags, and timestamps remain visible.
+      </p>
+      {memoryError && <p role="alert" className="text-sm text-red-400">{memoryError}</p>}
       {/* Controls */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="cosmic-card">
@@ -686,7 +697,7 @@ export default function MemoryPalace() {
                 <div className="space-y-2">
                   <div className="text-slate-400 text-sm">Encrypted content:</div>
                   {passphrase ? (
-                    <div className="text-slate-300">{decryptMemory(selectedMemory)}</div>
+                    <div className="text-slate-300">{decryptedContent}</div>
                   ) : (
                     <div className="text-slate-500 italic">Enter passphrase to decrypt</div>
                   )}
@@ -720,3 +731,4 @@ export default function MemoryPalace() {
     </div>
   )
 }
+

@@ -13,6 +13,8 @@ class CosmicAudioAnalyzer {
     this.audioContext = null
     this.analyser = null
     this.microphone = null
+    this.stream = null
+    this.disposed = false
     this.dataArray = null
     this.isActive = false
     this.onsetDetector = new AdvancedOnsetDetector()
@@ -35,6 +37,11 @@ class CosmicAudioAnalyzer {
         },
       })
 
+      if (this.disposed) {
+        stream.getTracks().forEach((track) => track.stop())
+        return false
+      }
+      this.stream = stream
       this.microphone = this.audioContext.createMediaStreamSource(stream)
       this.analyser = this.audioContext.createAnalyser()
       this.analyser.fftSize = 4096
@@ -50,6 +57,7 @@ class CosmicAudioAnalyzer {
       return true
     } catch (error) {
       console.error("Audio initialization failed:", error)
+      this.dispose()
       return false
     }
   }
@@ -210,6 +218,10 @@ class CosmicAudioAnalyzer {
   }
 
   dispose() {
+    if (this.disposed) return
+    this.disposed = true
+    this.stream?.getTracks().forEach((track) => track.stop())
+    this.stream = null
     if (this.binaural) {
       try {
         this.binaural.left.stop()
@@ -224,7 +236,9 @@ class CosmicAudioAnalyzer {
     }
 
     if (this.microphone) this.microphone.disconnect()
-    if (this.audioContext) this.audioContext.close()
+    if (this.audioContext && this.audioContext.state !== "closed") {
+      void this.audioContext.close().catch((error) => console.error("Audio cleanup failed:", error))
+    }
     this.isActive = false
   }
 }
@@ -305,7 +319,7 @@ class CosmicPitchDetector {
 
     if (maxAmplitude < 50) {
       this.confidence = Math.max(this.confidence - 0.1, 0)
-      return this.previousPitch
+      return 0
     }
 
     const pitch = maxIndex * binSize
@@ -315,7 +329,7 @@ class CosmicPitchDetector {
       return pitch
     }
     this.confidence = Math.max(this.confidence - 0.05, 0)
-    return this.previousPitch
+    return 0
   }
 }
 
@@ -563,8 +577,15 @@ function useCosmicAudioAnalysis() {
 
   const startAudio = async () => {
     try {
-      analyzerRef.current = new CosmicAudioAnalyzer()
-      const success = await analyzerRef.current.initialize()
+      if (analyzerRef.current) return
+      const analyzer = new CosmicAudioAnalyzer()
+      analyzerRef.current = analyzer
+      const success = await analyzer.initialize()
+      if (analyzerRef.current !== analyzer) return
+      if (!success) {
+        analyzerRef.current = null
+        return
+      }
 
       if (success) {
         setIsActive(true)
@@ -576,7 +597,7 @@ function useCosmicAudioAnalysis() {
   }
 
   const analyzeAudio = () => {
-    if (!analyzerRef.current) return
+    if (!analyzerRef.current?.isActive) return
 
     const analysis = analyzerRef.current.getCosmicAnalysis()
 
@@ -606,6 +627,7 @@ function useCosmicAudioAnalysis() {
     }
     if (analyzerRef.current) {
       analyzerRef.current.dispose()
+      analyzerRef.current = null
     }
     setIsActive(false)
     setAudioData({
@@ -629,6 +651,7 @@ function useCosmicAudioAnalysis() {
       }
       if (analyzerRef.current) {
         analyzerRef.current.dispose()
+        analyzerRef.current = null
       }
     }
   }, [])
@@ -936,7 +959,7 @@ function WeatherDisplay() {
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           {getWeatherIcon(weather.condition)}
-          Weather Ambience
+          Simulated Weather Ambience
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -1194,3 +1217,4 @@ export default function CosmicCreativePlayground() {
     </div>
   )
 }
+
