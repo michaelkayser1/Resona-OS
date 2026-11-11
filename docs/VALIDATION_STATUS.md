@@ -1,5 +1,7 @@
 # Resona OS: implementation and validation status
 
+> **November 10, 2026 update.** [Interactive app recovery and verification](APP_RECOVERY_2026-11-10.md).
+
 > **November 7, 2026 update:** [OSAA experimental implementation extension and local mock status](OSAA_EXPERIMENTAL_2026-11-07.md). This is a proposed additive control profile, not completion of the eight-test suite, independent validation, or authorization to deploy. RS-001 v1.2 remains unchanged.
 
 **As of October 19, 2026.** This is a source-level inventory, not independent certification. Status can change as the repositories evolve.
