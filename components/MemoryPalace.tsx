@@ -188,8 +188,11 @@ function MemoryVisualizer({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationRef = useRef<number>()
   const cameraRef = useRef({ x: 0, y: 5, z: 10, rotX: 0, rotY: 0 })
-  const isDraggingRef = useRef(false)
-  const lastMouseRef = useRef({ x: 0, y: 0 })
+  const zoomRef = useRef(1)
+
+  const zoom = (factor: number) => {
+    zoomRef.current = Math.max(0.5, Math.min(3, zoomRef.current * factor))
+  }
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -230,8 +233,8 @@ function MemoryVisualizer({
       const z2 = dy * sinX + z1 * cosX
 
       // Project to 2D
-      const distance = z2 + 10
-      const scale = canvas.width / 4 / distance
+      const distance = Math.max(0.5, z2 + 10)
+      const scale = (canvas.width / 4 / distance) * zoomRef.current
 
       return {
         x: canvas.width / 2 + x1 * scale,
@@ -327,77 +330,74 @@ function MemoryVisualizer({
 
     animate()
 
-    // Mouse controls
-    const handleMouseDown = (e: MouseEvent) => {
-      isDraggingRef.current = true
-      lastMouseRef.current = { x: e.clientX, y: e.clientY }
+    let gesture: { id: number; x: number; y: number; dragged: boolean } | null = null
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!event.isPrimary || event.button !== 0 || gesture) return
+      canvas.setPointerCapture(event.pointerId)
+      gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, dragged: false }
     }
 
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDraggingRef.current) return
-
-      const deltaX = e.clientX - lastMouseRef.current.x
-      const deltaY = e.clientY - lastMouseRef.current.y
-
-      cameraRef.current.rotY -= deltaX * 0.01
-      cameraRef.current.rotX += deltaY * 0.01
-
-      // Clamp X rotation
-      cameraRef.current.rotX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, cameraRef.current.rotX))
-
-      lastMouseRef.current = { x: e.clientX, y: e.clientY }
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!gesture || gesture.id !== event.pointerId) return
+      const dx = event.clientX - gesture.x
+      const dy = event.clientY - gesture.y
+      if (!gesture.dragged && Math.hypot(dx, dy) < 8) return
+      gesture.dragged = true
+      const camera = cameraRef.current
+      camera.rotY -= dx * 0.01
+      camera.rotX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotX + dy * 0.01))
+      gesture.x = event.clientX
+      gesture.y = event.clientY
     }
 
-    const handleMouseUp = () => {
-      isDraggingRef.current = false
+    const clearPointer = (event: PointerEvent) => {
+      if (gesture?.id === event.pointerId) gesture = null
     }
 
-    const handleClick = (e: MouseEvent) => {
-      if (isDraggingRef.current) return
+    const handlePointerUp = (event: PointerEvent) => {
+      if (!gesture || gesture.id !== event.pointerId) return
+      const { dragged } = gesture
+      clearPointer(event)
+      if (dragged) return
 
       const rect = canvas.getBoundingClientRect()
-      const clickX = e.clientX - rect.left
-      const clickY = e.clientY - rect.top
+      const x = event.clientX - rect.left
+      const y = event.clientY - rect.top
+      if (x < 0 || y < 0 || x >= rect.width || y >= rect.height) return
 
-      // Find clicked memory
+      let nearest: Memory | undefined
+      let bestDistance = Number.POSITIVE_INFINITY
       for (const memory of memories) {
         const projected = project3D(memory.x, memory.y, memory.z)
-        const distance = Math.sqrt(Math.pow(clickX - projected.x, 2) + Math.pow(clickY - projected.y, 2))
-
-        if (distance < 15 * projected.scale) {
-          onMemorySelect(memory)
-          break
+        const distance = Math.hypot(x - projected.x, y - projected.y)
+        if (distance < bestDistance && distance <= Math.max(22, 15 * projected.scale)) {
+          nearest = memory
+          bestDistance = distance
         }
       }
+      if (nearest) onMemorySelect(nearest)
     }
 
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault()
-      const camera = cameraRef.current
-      const forward = {
-        x: Math.sin(camera.rotY) * Math.cos(camera.rotX),
-        y: Math.sin(camera.rotX),
-        z: Math.cos(camera.rotY) * Math.cos(camera.rotX),
-      }
-
-      const speed = e.deltaY > 0 ? 0.5 : -0.5
-      camera.x += forward.x * speed
-      camera.y += forward.y * speed
-      camera.z += forward.z * speed
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      zoom(event.deltaY > 0 ? 1 / 1.1 : 1.1)
     }
 
-    canvas.addEventListener("mousedown", handleMouseDown)
-    canvas.addEventListener("mousemove", handleMouseMove)
-    canvas.addEventListener("mouseup", handleMouseUp)
-    canvas.addEventListener("click", handleClick)
-    canvas.addEventListener("wheel", handleWheel)
+    canvas.addEventListener("pointerdown", handlePointerDown)
+    canvas.addEventListener("pointermove", handlePointerMove)
+    canvas.addEventListener("pointerup", handlePointerUp)
+    canvas.addEventListener("pointercancel", clearPointer)
+    canvas.addEventListener("lostpointercapture", clearPointer)
+    canvas.addEventListener("wheel", handleWheel, { passive: false })
 
     return () => {
       window.removeEventListener("resize", resizeCanvas)
-      canvas.removeEventListener("mousedown", handleMouseDown)
-      canvas.removeEventListener("mousemove", handleMouseMove)
-      canvas.removeEventListener("mouseup", handleMouseUp)
-      canvas.removeEventListener("click", handleClick)
+      canvas.removeEventListener("pointerdown", handlePointerDown)
+      canvas.removeEventListener("pointermove", handlePointerMove)
+      canvas.removeEventListener("pointerup", handlePointerUp)
+      canvas.removeEventListener("pointercancel", clearPointer)
+      canvas.removeEventListener("lostpointercapture", clearPointer)
       canvas.removeEventListener("wheel", handleWheel)
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current)
@@ -406,11 +406,29 @@ function MemoryVisualizer({
   }, [memories, rooms, onMemorySelect])
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="w-full h-full bg-slate-900 rounded-lg cursor-grab active:cursor-grabbing"
-      style={{ minHeight: "400px" }}
-    />
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <Button type="button" variant="outline" className="min-h-11" onClick={() => zoom(1.2)}>Zoom in</Button>
+        <Button type="button" variant="outline" className="min-h-11" onClick={() => zoom(1 / 1.2)}>Zoom out</Button>
+      </div>
+      <canvas
+        ref={canvasRef}
+        aria-label="3D Memory Space"
+        className="w-full h-full touch-none bg-slate-900 rounded-lg cursor-grab active:cursor-grabbing"
+        style={{ minHeight: "400px" }}
+      />
+      {memories.length > 0 && (
+        <ul aria-label="Memories" className="flex flex-wrap gap-2">
+          {memories.map((memory) => (
+            <li key={memory.id} className="min-w-0 max-w-full">
+              <Button type="button" variant="outline" className="min-h-11 max-w-full" onClick={() => onMemorySelect(memory)}>
+                <span className="truncate">{memory.title}</span>
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 
@@ -577,13 +595,13 @@ export default function MemoryPalace() {
               placeholder="Memory title"
               value={newMemoryTitle}
               onChange={(e) => setNewMemoryTitle(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400"
+              className="w-full min-h-11 px-3 py-2 text-base bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400"
             />
             <textarea
               placeholder="Memory content (optional)"
               value={newMemoryContent}
               onChange={(e) => setNewMemoryContent(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400 resize-none"
+              className="w-full min-h-11 px-3 py-2 text-base bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400 resize-none"
               rows={2}
             />
             <input
@@ -591,9 +609,9 @@ export default function MemoryPalace() {
               placeholder="Encryption passphrase (optional)"
               value={passphrase}
               onChange={(e) => setPassphrase(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-amber-400"
+              className="w-full min-h-11 px-3 py-2 text-base bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-amber-400"
             />
-            <Button onClick={addMemory} className="w-full cosmic-button">
+            <Button onClick={addMemory} className="w-full min-h-11 cosmic-button">
               Add Memory
             </Button>
           </CardContent>
@@ -605,19 +623,19 @@ export default function MemoryPalace() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              <Button onClick={discoverRooms} disabled={isLoading} className="cosmic-button text-sm">
+              <Button onClick={discoverRooms} disabled={isLoading} className="min-h-11 cosmic-button text-sm">
                 {isLoading ? "Discovering..." : "Discover Rooms"}
               </Button>
-              <Button onClick={exportMemories} className="cosmic-button text-sm">
+              <Button onClick={exportMemories} className="min-h-11 cosmic-button text-sm">
                 Export
               </Button>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <label className="cosmic-button text-sm cursor-pointer text-center py-2">
+              <label className="cosmic-button relative flex min-h-11 cursor-pointer items-center justify-center text-sm focus-within:ring-2">
                 Import
-                <input type="file" accept=".json" onChange={importMemories} className="hidden" />
+                <input type="file" aria-label="Import memories" accept=".json" onChange={importMemories} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
               </label>
-              <Button onClick={clearAllMemories} variant="destructive" className="text-sm">
+              <Button onClick={clearAllMemories} variant="destructive" className="min-h-11 text-sm">
                 Clear All
               </Button>
             </div>
@@ -632,7 +650,7 @@ export default function MemoryPalace() {
       <Card className="cosmic-card">
         <CardHeader className="pb-3">
           <CardTitle className="text-cyan-400">3D Memory Space</CardTitle>
-          <CardDescription>Drag to rotate • Scroll to zoom • Click memories to explore</CardDescription>
+          <CardDescription>Drag to rotate. Tap a memory to open it.</CardDescription>
         </CardHeader>
         <CardContent>
           <MemoryVisualizer memories={memories} onMemorySelect={setSelectedMemory} rooms={rooms} />
@@ -670,7 +688,7 @@ export default function MemoryPalace() {
                 </div>
               ))}
             </div>
-            <Button onClick={() => setShowRooms(false)} variant="outline" className="mt-4 bg-transparent">
+            <Button onClick={() => setShowRooms(false)} variant="outline" className="mt-4 min-h-11 bg-transparent">
               Close Rooms
             </Button>
           </CardContent>
@@ -712,7 +730,7 @@ export default function MemoryPalace() {
               </span>
               <span>ID: {selectedMemory.id}</span>
             </div>
-            <Button onClick={() => setSelectedMemory(null)} variant="outline" className="bg-transparent">
+            <Button onClick={() => setSelectedMemory(null)} variant="outline" className="min-h-11 bg-transparent">
               Close
             </Button>
           </CardContent>
