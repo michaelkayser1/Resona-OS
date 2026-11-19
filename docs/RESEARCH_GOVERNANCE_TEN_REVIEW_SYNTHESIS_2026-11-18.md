@@ -41,6 +41,12 @@ Test whether fund custody, access, researcher selection, endpoint freezing, adve
 
 **AUDIT-01 / Independent records:** Attempt alteration, omission, tail truncation and reordering under an independent expected event count/head anchor. Distinguish chain-internal consistency from externally witnessed completeness.
 
+### AUDIT-01 evidence boundary — tail truncation
+
+Static inspection at commit `cc6b7d70a929f22ac8702241c9258e85d1d1d01a` supports a Tier 2 classification for the regression design. The harness derives `expectedHead` from the intact three-event fixture before removing the final event. The regression asserts that the shortened chain passes the internal consistency check without `expectedHead` and fails verification when the fixture-derived reference is supplied. The harness controls both the log and the reference. A passing execution of the assertion at this revision, and independent anchor custody of any resulting checkpoint, remain unverified. The pinned regression establishes only the assertions its source encodes against the fixtures it supplies.
+
+An independently held checkpoint can verify that the presented log matches the entries committed by that checkpoint. Completeness relative to consequential effects requires a separate invariant binding each effect to its corresponding witnessed record. Even a synchronous checkpoint can commit a log that already omits a required entry. An event omitted before checkpointing can therefore remain undetected.
+
 **OSC-01 / Oscillatory computation:** Ask independent dynamical-systems researchers whether there is a precise distinguishing claim and a competent fixed/adaptive oscillator or control benchmark; compare under matched budgets and distribution shifts. Never infer novelty from a familiar phenomenon or analogy.
 
 **CUST-01 / Selective prediction:** Require an executable definition of the proposed phase/coherence metric for a fixed model and compare risk–coverage and latency against strong uncertainty/abstention baselines. Undefined metrics => NOT TESTED, not 'supported'.
