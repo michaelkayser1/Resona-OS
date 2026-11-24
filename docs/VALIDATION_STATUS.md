@@ -1,5 +1,7 @@
 # Resona OS: implementation and validation status
 
+> **November 24, 2026 update — CRS experimental closure:** CRS v0.4 retains six invariants; Experimental Contract v1.0 remains a freeze candidate. Separate residuals, verification verdicts, dispositions and revision provenance; preserve unknowns and historical violations. F02/F02b distinguish missing admissible timing evidence from established evidence-generation failure. Four hypotheses, RI-01–RI-12 and independent holdout/baseline controls await implementation and release-gate completion. No confirmatory execution or independent validation is claimed. No runtime or RS-001 changes are authorized by this status note.
+
 > **November 7, 2026 update:** [OSAA experimental implementation extension and local mock status](OSAA_EXPERIMENTAL_2026-11-07.md). This is a proposed additive control profile, not completion of the eight-test suite, independent validation, or authorization to deploy. RS-001 v1.2 remains unchanged.
 
 **As of October 19, 2026.** This is a source-level inventory, not independent certification. Status can change as the repositories evolve.
